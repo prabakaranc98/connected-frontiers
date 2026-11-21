@@ -72,11 +72,15 @@ flowchart LR
 
 | Part | What it does | Where |
 |---|---|---|
-| 🕸️ **Constructor** ("training") | rank-guided crawl → extract → resolve → graph, improving over rounds | `src/cf/crawl`, `extract`, `resolve`, `graph`, `rank` |
-| 🧠 **Reasoner** ("inference") | answers questions from the graph, cites every claim, asks for crawls when it finds gaps | `src/cf/reason` |
-| 🗺️ **Understanding views** | stack map, entity cards, guided tours, method diffusion, what changed | `src/cf/viz` |
-| 📏 **Eval harness** | every component scored against frozen gold sets and baselines | `src/cf/eval`, [EVAL.md](EVAL.md) |
-| 🤗 **Release** | KG snapshot and a 5-task benchmark on Hugging Face | [docs/DATASET.md](docs/DATASET.md) |
+| 🕸️ **Constructor** (curation) | rank-guided crawl → noise gates → extract → verify → grade → resolve → versioned KB (graph + GraphRAG index) | `src/cf/crawl`, `extract`, `graph`, `resolve`, `rank`, `docs.py`, `kb.py` |
+| 🧪 **Examiner** (task builder) | builds multi-turn tasks from a KB release: keys computed by graph algorithms, LLM-written turns, deterministic checks, a solver gate | `src/cf/bench/sessions.py` |
+| 🧠 **Reasoner** (inference) | answers from the KB in one retrieval mode (closed book · GraphRAG · KG tools · graph query (planned) · oracle), citing every claim | `src/cf/agent` |
+| 🗺️ **Explorer** | Map › Segment › Entity: segment bubbles, segment cards, relation lens, entity card with sources, path finder | `src/cf/viz` |
+| 📏 **Eval + observability** | silver labels (4-judge ensemble), component rescoring, traces, live crawl monitor | `src/cf/eval`, `trace.py`, `serve.py`, [EVAL.md](EVAL.md) |
+| 🤗 **Release** | HF collection: `kg` · `bench` (tasks + sessions) · `runs` (trajectories) · `labels` | `release.py`, [docs/DATASET.md](docs/DATASET.md) |
+
+The gap between the Examiner (which knows each answer) and the Reasoner (which must find it), per
+retrieval mode and turn, is each release's scorecard. Design: [docs/DESIGN.md §0 and §5](docs/DESIGN.md#5-reasoner-and-examiner).
 
 The core experiment: does **personalized-PageRank "push" crawling** reach the relevant
 ecosystem in fewer fetches than **BFS**? Details are in [docs/DESIGN.md §3](docs/DESIGN.md#3-the-crawl-algorithm-and-estimating-coverage).
@@ -105,6 +109,12 @@ Optional extras: `uv sync --extra extract-baseline` (GLiNER, pulls torch), `--ex
 | `cf build` | rebuild graph from cache + HF adapter + ER + segments + report | ✅ |
 | `cf silver --version v1` | ensemble silver labels; owner dispute queue | ✅ |
 | `cf tasks` / `cf bench` | use-case tasks from the KG; agent benchmark + leaderboard | ✅ |
+| `cf sessions` / `cf sessions-bench` | Examiner: build + gate multi-turn sessions; run the Reasoner on them, per-turn scores | 🧪 built, first run pending |
+| `cf crawl --budget N [--resume\|--status]` | PPR frontier crawl, noise gates, live monitor page, checkpoints | ✅ |
+| `cf lookup "<name or url>"` / `cf cache` | answer from KG or fetch live · cache freshness and refresh cost | ✅ |
+| `cf docs` / `cf ask "<q>" --mode graph_rag` | GraphRAG document index · grounded answers citing passages + edges | ✅ |
+| `cf kb list\|show\|diff\|use` | versioned KB snapshots (manifest: counts, models, prompts, git) | ✅ |
+| `cf release [--push --repo …]` | HF collection: kb · tasks · trajectories · labels (push is private, explicit) | ✅ |
 | `cf crawl --policy bfs --budget 200` | Constructor crawl from `configs/seeds.yaml` | M1 / M3 |
 | `cf rank --seed "Applied Compute"` | PageRank, personalized PageRank, HITS | M3 |
 | `cf ask "who trains legal agents?" --system R3` | cited answer | M5 |
@@ -131,7 +141,8 @@ connected-frontiers/
 | Doc | Read it for |
 |---|---|
 | [PROBLEM.md](PROBLEM.md) | north star, user, task, objective: the eight objects |
-| [docs/DESIGN.md](docs/DESIGN.md) | architecture, layers, crawl algorithm, coverage estimation, understanding views |
+| [docs/DESIGN.md](docs/DESIGN.md) | **layered architecture** (acquire → extract/verify → curate → represent → use → evaluate → release), crawl algorithm, understanding views |
+| [docs/DISCOVERY.md](docs/DISCOVERY.md) | opportunity discovery and education uses (owner priorities) |
 | [EVAL.md](EVAL.md) | metrics, frozen test sets, baselines, results log |
 | [docs/EVIDENCE.md](docs/EVIDENCE.md) | truth vs claim: evidence grading, Reasoner wording rules |
 | [docs/DATASET.md](docs/DATASET.md) | Hugging Face dataset and benchmark plan |

@@ -29,3 +29,9 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# versioned KBs: contain page text (passages) → never commit; keep manifests + reports
+data/kb/*/*
+!data/kb/*/manifest.json
+!data/kb/*/report.md
+data/release/

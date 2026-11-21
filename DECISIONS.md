@@ -2,6 +2,25 @@
 
 Newest first. Gate passes, kills, scope changes, method and stack choices.
 
+## 2026-11-21 — Keep Gemma-3-27B as the escalation verifier (owner)
+- Roles: extract Inkling-2-mini (fallback Qwen3.5 on long pages) · verify DeepSeek-v4.1-flash ·
+  second opinion on risky claims Gemma-3-27B.
+- Owner accepted Gemma 3 here, although it is older than the preferred set: it works and cut false
+  support 0.43 → 0.14. No switch, so no re-verification of the ~830 cached pages.
+- Revisit if: escalation precision drops on the next silver check, or the KB is rebuilt anyway
+  (then Mistral-Small-2603 is the drop-in alternative).
+
+## 2026-11-21 — Direction: opportunity discovery + education (owner)
+- **Lead:** (A) **opportunity discovery**: problems, white space, "what to build" briefs, recurring
+  patterns; (B) **education**: overview maps, pattern cards, learning paths, guided tours,
+  self-check quizzes. See docs/DISCOVERY.md §0.
+- **Deprioritized:** funding and financial data, partnership and investment forecasting, the
+  world-model framing, people (later).
+- Why (owner): the KG is knowledge to *use*, to understand the ecosystem and decide what to build
+  or learn. Forecasting money flows isn't the point now.
+- Revisit: people nodes after the crawl and quality loop settle; temporal checks once a second
+  snapshot exists.
+
 ## 2026-11-21 — Scale-up, silver labels, fallbacks, agents + benchmark v0, object layer v0
 - **Scale:** 48 seeds across all categories plus hop 2 by PPR → 245 pages, 50 publishers, 3,433
   entities. HF Hub adapter (no LLM): 238 rows → 132 `offers`, 62 `trained_on`, 44 `builds_on` (26
@@ -151,3 +170,19 @@ not as a benchmark.
 - [ ] Confirm objective thresholds (PROBLEM.md §6, EVAL.md)
 - [ ] Choose the 3 seeds and build the gold entity set
 - [ ] Person nodes in v1: yes or no
+
+## 2026-11-21 · Three roles; explorer drill-down; metric nodes
+
+- **Roles (owner):** Constructor = curation (not "training"), Reasoner = inference, plus an
+  **Examiner** that builds and tests tasks from each KB release and is run against the Reasoner.
+  Their gap per retrieval mode is the release scorecard ("what this KB can prove").
+- **Retrieval modes made explicit:** `graph_rag` is fixed, one-shot (seed → PPR → passages); the
+  model writes no query. `kg_tools` lets the model walk. A `graph_query` mode (model writes one typed
+  path query, executed deterministically) is planned, as a controlled comparison, not a default.
+- **Explorer:** overview first, details on demand: Map (segments) › Segment (top 40 + card) › Entity
+  (lens capped at 12 per relation + card with sources). Reason: 9k nodes, 120 segments.
+- **Metric nodes gated** ("1B events per month"): measured first: only 35 nodes, with false
+  positives on orgs and paper titles ("10x Genomics", "10 years of AlphaGo"), so orgs and papers are
+  exempt. Crowding came mostly from 2,353 paper/blog nodes and 844 isolates; the drill-down handles that.
+- **Segment naming fixed:** one call for 120 clusters truncated silently and fell back to "A · B"
+  names; now batched by 25, failures recorded in `graph.segment_naming`.

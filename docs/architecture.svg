@@ -1,200 +1,171 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 730" width="1200" height="730" font-family="system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
-  <title>Connected Frontiers architecture</title>
-  <defs>
-    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#52606d"/>
-    </marker>
-    <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#d9822b"/>
-    </marker>
-    <style>
-      .t  { font-size: 13px; font-weight: 600; fill: #1f2933; }
-      .s  { font-size: 11px; fill: #52606d; }
-      .h  { font-size: 14px; font-weight: 700; fill: #1f2933; letter-spacing: .3px; }
-      .algo  { fill: #e3edfb; stroke: #3b6fd8; stroke-width: 1.5; }
-      .model { fill: #fdecd9; stroke: #d9822b; stroke-width: 1.5; }
-      .code  { fill: #eceff3; stroke: #6b7785; stroke-width: 1.5; }
-      .data  { fill: #e2f4e8; stroke: #2f9e5b; stroke-width: 1.5; }
-      .frame { fill: #f6f8fb; stroke: #c9d3e0; stroke-width: 1.5; }
-      .ln    { stroke: #52606d; stroke-width: 1.6; fill: none; }
-    </style>
-  </defs>
-
-  <rect width="1200" height="730" fill="#ffffff"/>
-  <text x="20" y="26" class="h" font-size="17">Connected Frontiers: one system, two roles, one graph</text>
-
-  <!-- request_crawl feedback (Reasoner → Frontier) -->
-  <path d="M1070,56 V40 H287 V98" fill="none" stroke="#d9822b" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrO)"/>
-  <rect x="560" y="31" width="330" height="18" fill="#ffffff"/>
-  <text x="725" y="44" class="s" text-anchor="middle" fill="#b5651d">request_crawl(entity, why): gaps become targeted crawls</text>
-
-  <!-- ============ CONSTRUCTOR ============ -->
-  <rect x="20" y="56" width="700" height="400" rx="14" class="frame"/>
-  <text x="36" y="78" class="h">CONSTRUCTOR · training time: builds the graph</text>
-
-  <!-- row 1 -->
-  <rect x="40"  y="98" width="150" height="76" rx="9" class="data"/>
-  <text x="115" y="124" class="t" text-anchor="middle">Seeds</text>
-  <text x="115" y="142" class="s" text-anchor="middle">configs/seeds.yaml</text>
-  <text x="115" y="157" class="s" text-anchor="middle">labs · neolabs · infra</text>
-
-  <rect x="212" y="98" width="150" height="76" rx="9" class="algo"/>
-  <text x="287" y="120" class="t" text-anchor="middle">Frontier</text>
-  <text x="287" y="138" class="s" text-anchor="middle">priority = r(v)/deg(v)</text>
-  <text x="287" y="152" class="s" text-anchor="middle">× novelty × type cap</text>
-  <text x="287" y="166" class="s" text-anchor="middle">− λ·cost</text>
-
-  <rect x="384" y="98" width="150" height="76" rx="9" class="model"/>
-  <text x="459" y="124" class="t" text-anchor="middle">Source finder</text>
-  <text x="459" y="142" class="s" text-anchor="middle">entity → URLs</text>
-  <text x="459" y="157" class="s" text-anchor="middle">rules → LLM · bandit</text>
-
-  <rect x="556" y="98" width="150" height="76" rx="9" class="code"/>
-  <text x="631" y="124" class="t" text-anchor="middle">Fetch + clean</text>
-  <text x="631" y="142" class="s" text-anchor="middle">httpx · robots · cache</text>
-  <text x="631" y="157" class="s" text-anchor="middle">trafilatura</text>
-
-  <line x1="190" y1="136" x2="210" y2="136" class="ln" marker-end="url(#arr)"/>
-  <line x1="362" y1="136" x2="382" y2="136" class="ln" marker-end="url(#arr)"/>
-  <line x1="534" y1="136" x2="554" y2="136" class="ln" marker-end="url(#arr)"/>
-  <line x1="631" y1="174" x2="631" y2="216" class="ln" marker-end="url(#arr)"/>
-
-  <!-- row 2 (right → left) -->
-  <rect x="556" y="218" width="150" height="76" rx="9" class="model"/>
-  <text x="631" y="244" class="t" text-anchor="middle">Extract</text>
-  <text x="631" y="262" class="s" text-anchor="middle">text → typed triples</text>
-  <text x="631" y="277" class="s" text-anchor="middle">LLM schema vs GLiNER</text>
-
-  <rect x="384" y="218" width="150" height="76" rx="9" class="model"/>
-  <text x="459" y="244" class="t" text-anchor="middle">Resolve</text>
-  <text x="459" y="262" class="s" text-anchor="middle">mention → entity id</text>
-  <text x="459" y="277" class="s" text-anchor="middle">domain · fuzzy · LLM</text>
-
-  <rect x="212" y="218" width="150" height="76" rx="9" class="code"/>
-  <text x="287" y="244" class="t" text-anchor="middle">Graph update</text>
-  <text x="287" y="262" class="s" text-anchor="middle">corroborate edges</text>
-  <text x="287" y="277" class="s" text-anchor="middle">confidence · status</text>
-
-  <rect x="40" y="218" width="150" height="76" rx="9" class="algo"/>
-  <text x="115" y="244" class="t" text-anchor="middle">Rank</text>
-  <text x="115" y="262" class="s" text-anchor="middle">PPR push (local)</text>
-  <text x="115" y="277" class="s" text-anchor="middle">typed · conf · decay</text>
-
-  <line x1="556" y1="256" x2="536" y2="256" class="ln" marker-end="url(#arr)"/>
-  <line x1="384" y1="256" x2="364" y2="256" class="ln" marker-end="url(#arr)"/>
-  <line x1="212" y1="256" x2="192" y2="256" class="ln" marker-end="url(#arr)"/>
-  <!-- Rank → Frontier -->
-  <path d="M115,218 V198 H287 V176" class="ln" marker-end="url(#arr)"/>
-  <text x="201" y="193" class="s" text-anchor="middle">new priorities</text>
-
-  <text x="40" y="314" class="s">stop: max r(v)/deg(v) &lt; ε, or fetch budget spent · policies compared: bfs · degree · pagerank · ppr_push · typed · bandit</text>
-
-  <!-- row 3: improvement loops -->
-  <rect x="40" y="328" width="666" height="112" rx="10" fill="#ffffff" stroke="#c9d3e0" stroke-dasharray="5 4"/>
-  <text x="54" y="350" class="t">Self-improvement loops: each one scored on held-out data, never on frozen test sets</text>
-  <g>
-    <rect x="52"  y="364" width="122" height="62" rx="8" class="model"/>
-    <text x="113" y="388" class="t" text-anchor="middle" font-size="12">Extraction</text>
-    <text x="113" y="405" class="s" text-anchor="middle">prompt edits</text>
-    <text x="113" y="418" class="s" text-anchor="middle">(GEPA-style)</text>
-
-    <rect x="182" y="364" width="122" height="62" rx="8" class="algo"/>
-    <text x="243" y="388" class="t" text-anchor="middle" font-size="12">Source policy</text>
-    <text x="243" y="405" class="s" text-anchor="middle">Thompson bandit</text>
-    <text x="243" y="418" class="s" text-anchor="middle">over page types</text>
-
-    <rect x="312" y="364" width="122" height="62" rx="8" class="code"/>
-    <text x="373" y="388" class="t" text-anchor="middle" font-size="12">Alias table</text>
-    <text x="373" y="405" class="s" text-anchor="middle">adjudicated</text>
-    <text x="373" y="418" class="s" text-anchor="middle">merges</text>
-
-    <rect x="442" y="364" width="122" height="62" rx="8" class="data"/>
-    <text x="503" y="388" class="t" text-anchor="middle" font-size="12">Schema</text>
-    <text x="503" y="405" class="s" text-anchor="middle">proposed relations</text>
-    <text x="503" y="418" class="s" text-anchor="middle">owner accepts</text>
-
-    <rect x="572" y="364" width="122" height="62" rx="8" class="algo"/>
-    <text x="633" y="388" class="t" text-anchor="middle" font-size="12">Refresh</text>
-    <text x="633" y="405" class="s" text-anchor="middle">recrawl by</text>
-    <text x="633" y="418" class="s" text-anchor="middle">change rate</text>
-  </g>
-
-  <!-- ============ KG ============ -->
-  <line x1="720" y1="256" x2="756" y2="256" class="ln" marker-end="url(#arr)"/>
-  <text x="738" y="248" class="s" text-anchor="middle">vN</text>
-  <path d="M760,196 V304 A80,16 0 0 0 920,304 V196" class="data"/>
-  <ellipse cx="840" cy="196" rx="80" ry="16" class="data"/>
-  <text x="840" y="236" class="t" text-anchor="middle">Knowledge graph</text>
-  <text x="840" y="254" class="s" text-anchor="middle">entities · typed edges</text>
-  <text x="840" y="269" class="s" text-anchor="middle">url · quote · date</text>
-  <text x="840" y="284" class="s" text-anchor="middle">claimed → verified</text>
-  <text x="840" y="340" class="s" text-anchor="middle">SQLite → Parquet</text>
-  <text x="840" y="354" class="s" text-anchor="middle">versioned snapshots</text>
-
-  <!-- ============ REASONER ============ -->
-  <line x1="920" y1="256" x2="958" y2="256" class="ln" marker-end="url(#arr)"/>
-  <rect x="960" y="56" width="220" height="400" rx="14" class="frame"/>
-  <text x="974" y="78" class="h">REASONER · inference</text>
-
-  <rect x="975" y="94" width="190" height="44" rx="9" class="data"/>
-  <text x="1070" y="113" class="t" text-anchor="middle">Question</text>
-  <text x="1070" y="129" class="s" text-anchor="middle">"who solves X, how, measured?"</text>
-
-  <rect x="975" y="158" width="190" height="56" rx="9" class="algo"/>
-  <text x="1070" y="180" class="t" text-anchor="middle">Seed + PPR subgraph</text>
-  <text x="1070" y="198" class="s" text-anchor="middle">entities in question → top-k</text>
-
-  <rect x="975" y="234" width="190" height="112" rx="9" class="model"/>
-  <text x="1070" y="256" class="t" text-anchor="middle">Agent + graph tools</text>
-  <text x="1070" y="276" class="s" text-anchor="middle">find_entity · neighbors</text>
-  <text x="1070" y="292" class="s" text-anchor="middle">ppr · paths · compare</text>
-  <text x="1070" y="308" class="s" text-anchor="middle">evidence · request_crawl</text>
-  <text x="1070" y="330" class="s" text-anchor="middle">vs R0 no-graph · R1 RAG</text>
-
-  <rect x="975" y="366" width="190" height="72" rx="9" class="data"/>
-  <text x="1070" y="390" class="t" text-anchor="middle">Cited answer</text>
-  <text x="1070" y="408" class="s" text-anchor="middle">claim → edge_id → url</text>
-  <text x="1070" y="423" class="s" text-anchor="middle">"not in graph" is valid</text>
-
-  <line x1="1070" y1="138" x2="1070" y2="156" class="ln" marker-end="url(#arr)"/>
-  <line x1="1070" y1="214" x2="1070" y2="232" class="ln" marker-end="url(#arr)"/>
-  <line x1="1070" y1="346" x2="1070" y2="364" class="ln" marker-end="url(#arr)"/>
-
-  <!-- ============ OUTPUTS ============ -->
-  <line x1="840" y1="364" x2="840" y2="474" class="ln"/>
-  <line x1="200" y1="474" x2="1000" y2="474" class="ln"/>
-  <line x1="200" y1="474" x2="200" y2="494" class="ln" marker-end="url(#arr)"/>
-  <line x1="600" y1="474" x2="600" y2="494" class="ln" marker-end="url(#arr)"/>
-  <line x1="1000" y1="474" x2="1000" y2="494" class="ln" marker-end="url(#arr)"/>
-
-  <rect x="20" y="496" width="360" height="100" rx="10" class="code"/>
-  <text x="200" y="522" class="t" text-anchor="middle">cf.viz · Explorer</text>
-  <text x="200" y="542" class="s" text-anchor="middle">Cytoscape.js · nodes sized by PPR from a seed</text>
-  <text x="200" y="558" class="s" text-anchor="middle">type filters · provenance panel</text>
-  <text x="200" y="574" class="s" text-anchor="middle">crawl replay slider</text>
-
-  <rect x="420" y="496" width="360" height="100" rx="10" class="algo"/>
-  <text x="600" y="522" class="t" text-anchor="middle">cf.eval · Harness (scores every box)</text>
-  <text x="600" y="542" class="s" text-anchor="middle">frozen: gold entities · labelled pages · questions</text>
-  <text x="600" y="558" class="s" text-anchor="middle">crawl curves vs BFS · triple F1 · merge P/R</text>
-  <text x="600" y="574" class="s" text-anchor="middle">link-pred hits@k · reasoner R0–R3</text>
-
-  <rect x="820" y="496" width="360" height="100" rx="10" class="data"/>
-  <text x="1000" y="522" class="t" text-anchor="middle">Hugging Face release</text>
-  <text x="1000" y="542" class="s" text-anchor="middle">dataset: entities · edges · sources (dated)</text>
-  <text x="1000" y="558" class="s" text-anchor="middle">benchmark: 5 tasks · leaderboard baselines</text>
-  <text x="1000" y="574" class="s" text-anchor="middle">see DATASET.md</text>
-
-  <!-- shared band -->
-  <rect x="20" y="614" width="1160" height="40" rx="9" fill="#ffffff" stroke="#c9d3e0"/>
-  <text x="600" y="639" class="s" text-anchor="middle" font-size="12">Shared: cf.llm (OpenRouter, cost logged per call) · cf.graph (SQLite + networkx) · configs/ (seeds, policies, schema) · data/raw (immutable cache)</text>
-
-  <!-- legend -->
-  <g font-size="12">
-    <rect x="20"  y="676" width="16" height="16" rx="3" class="algo"/><text x="42"  y="689" class="s" font-size="12">algorithm (owns control, compared)</text>
-    <rect x="290" y="676" width="16" height="16" rx="3" class="model"/><text x="312" y="689" class="s" font-size="12">model / agent (judgment, has a non-LLM baseline)</text>
-    <rect x="620" y="676" width="16" height="16" rx="3" class="code"/><text x="642" y="689" class="s" font-size="12">plain code</text>
-    <rect x="740" y="676" width="16" height="16" rx="3" class="data"/><text x="762" y="689" class="s" font-size="12">data / artifact</text>
-    <line x1="890" y1="684" x2="930" y2="684" stroke="#d9822b" stroke-width="1.6" stroke-dasharray="6 4"/><text x="938" y="689" class="s" font-size="12">feedback from Reasoner</text>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 868" width="1400" height="868" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Connected Frontiers architecture: Constructor, Examiner and Reasoner around a versioned knowledge base</title>
+<defs>
+  <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.06"/></filter>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="#94A3B8"/></marker>
+  <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="#EA580C"/></marker>
+  <marker id="arrV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="#7C3AED"/></marker>
+</defs>
+<rect width="1400" height="868" fill="#F8FAFC"/>
+<text x="48" y="50" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">Connected Frontiers</text>
+<text x="48" y="74" font-size="14" font-weight="400" fill="#64748B" text-anchor="start">Three roles around one versioned knowledge base</text>
+<path d="M1087,120 V100 H213 V118" fill="none" stroke="#EA580C" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrO)"/>
+<rect x="532.5" y="89" width="235" height="22" rx="11" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="650" y="104" font-size="11" font-weight="600" fill="#EA580C" text-anchor="middle">gaps → targeted crawl · planned</text>
+<rect x="48" y="120" width="330" height="560" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<clipPath id="c1"><rect x="48" y="120" width="330" height="560" rx="16"/></clipPath>
+<rect x="48" y="120" width="330" height="4" fill="#2563EB" clip-path="url(#c1)"/>
+<circle cx="77" cy="152" r="5" fill="#2563EB"/>
+<text x="90" y="156" font-size="11.5" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.14em">CONSTRUCTOR</text>
+<text x="72" y="182" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">Curation</text>
+<rect x="72" y="200" width="282" height="64" rx="10" fill="#2563EB" fill-opacity="0.06" stroke="#2563EB" stroke-opacity="0.35"/>
+<circle cx="94" cy="232.0" r="11" fill="#2563EB"/>
+<text x="94" y="236.0" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+<text x="116" y="229.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Crawl</text>
+<text x="116" y="246.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">PPR-prioritised frontier</text>
+<rect x="72" y="276" width="282" height="64" rx="10" fill="#2563EB" fill-opacity="0.06" stroke="#2563EB" stroke-opacity="0.35"/>
+<circle cx="94" cy="308.0" r="11" fill="#2563EB"/>
+<text x="94" y="312.0" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+<text x="116" y="305.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Clean &amp; gate</text>
+<text x="116" y="322.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">noise · duplicates · metrics</text>
+<path d="M213,264 V274" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="72" y="352" width="282" height="64" rx="10" fill="#2563EB" fill-opacity="0.06" stroke="#2563EB" stroke-opacity="0.35"/>
+<circle cx="94" cy="384.0" r="11" fill="#2563EB"/>
+<text x="94" y="388.0" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+<text x="116" y="381.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Extract</text>
+<text x="116" y="398.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">typed triples with quotes</text>
+<path d="M213,340 V350" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="72" y="428" width="282" height="64" rx="10" fill="#2563EB" fill-opacity="0.06" stroke="#2563EB" stroke-opacity="0.35"/>
+<circle cx="94" cy="460.0" r="11" fill="#2563EB"/>
+<text x="94" y="464.0" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+<text x="116" y="457.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Verify</text>
+<text x="116" y="474.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">quote-checked · second opinion</text>
+<path d="M213,416 V426" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="72" y="504" width="282" height="64" rx="10" fill="#2563EB" fill-opacity="0.06" stroke="#2563EB" stroke-opacity="0.35"/>
+<circle cx="94" cy="536.0" r="11" fill="#2563EB"/>
+<text x="94" y="540.0" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">5</text>
+<text x="116" y="533.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Grade &amp; resolve</text>
+<text x="116" y="550.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">claimed → verified · merges</text>
+<path d="M213,492 V502" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="72" y="600" width="282" height="56" rx="10" fill="#475569" fill-opacity="0.06" stroke="#475569" stroke-opacity="0.35"/>
+<text x="88" y="625.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Structured adapters</text>
+<text x="88" y="642.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">Hugging Face Hub lineage</text>
+<rect x="450" y="240" width="300" height="312" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<clipPath id="c2"><rect x="450" y="240" width="300" height="312" rx="16"/></clipPath>
+<rect x="450" y="240" width="300" height="4" fill="#059669" clip-path="url(#c2)"/>
+<ellipse cx="600" cy="282" rx="18" ry="6" fill="#FFFFFF" stroke="#059669" stroke-width="1.6"/>
+<ellipse cx="600" cy="291" rx="18" ry="6" fill="#FFFFFF" stroke="#059669" stroke-width="1.6"/>
+<ellipse cx="600" cy="300" rx="18" ry="6" fill="#FFFFFF" stroke="#059669" stroke-width="1.6"/>
+<path d="M582,282 V300 M618,282 V300" stroke="#059669" stroke-width="1.6"/>
+<text x="600" y="334" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">Knowledge Base</text>
+<text x="600" y="354" font-size="12" font-weight="400" fill="#64748B" text-anchor="middle">versioned snapshot · vN</text>
+<rect x="474" y="372" width="252" height="44" rx="10" fill="#059669" fill-opacity="0.06" stroke="#059669" stroke-opacity="0.35"/>
+<text x="490" y="391.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Graph</text>
+<text x="490" y="408.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">entities · typed edges</text>
+<rect x="474" y="424" width="252" height="44" rx="10" fill="#059669" fill-opacity="0.06" stroke="#059669" stroke-opacity="0.35"/>
+<text x="490" y="443.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Evidence</text>
+<text x="490" y="460.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">quotes · status · strength</text>
+<rect x="474" y="476" width="252" height="44" rx="10" fill="#059669" fill-opacity="0.06" stroke="#059669" stroke-opacity="0.35"/>
+<text x="490" y="495.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Passages</text>
+<text x="490" y="512.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">GraphRAG index</text>
+<text x="600" y="540" font-size="11.5" font-weight="400" fill="#64748B" text-anchor="middle">diffable · pinned by every task</text>
+<path d="M378,400 H448" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="377.0" y="389" width="74" height="22" rx="11" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="414" y="404" font-size="11" font-weight="600" fill="#64748B" text-anchor="middle">snapshot</text>
+<rect x="822" y="120" width="530" height="330" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<clipPath id="c3"><rect x="822" y="120" width="530" height="330" rx="16"/></clipPath>
+<rect x="822" y="120" width="530" height="4" fill="#EA580C" clip-path="url(#c3)"/>
+<circle cx="851" cy="152" r="5" fill="#EA580C"/>
+<text x="864" y="156" font-size="11.5" font-weight="700" fill="#EA580C" text-anchor="start" letter-spacing="0.14em">REASONER</text>
+<text x="846" y="182" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">Inference</text>
+<rect x="846" y="216" width="250" height="38" rx="10" fill="#EA580C" fill-opacity="0.06" stroke="#EA580C" stroke-opacity="0.35"/>
+<text x="862" y="232.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Closed book</text>
+<text x="862" y="249.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">memory only</text>
+<rect x="846" y="260" width="250" height="38" rx="10" fill="#EA580C" fill-opacity="0.06" stroke="#EA580C" stroke-opacity="0.35"/>
+<text x="862" y="276.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">GraphRAG</text>
+<text x="862" y="293.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">seeds → PPR → passages</text>
+<rect x="846" y="304" width="250" height="38" rx="10" fill="#EA580C" fill-opacity="0.06" stroke="#EA580C" stroke-opacity="0.35"/>
+<text x="862" y="320.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">KG tools</text>
+<text x="862" y="337.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">step-by-step graph walk</text>
+<rect x="846" y="348" width="250" height="38" rx="10" fill="#EA580C" fill-opacity="0.06" stroke="#EA580C" stroke-opacity="0.35" stroke-dasharray="5 4"/>
+<text x="862" y="364.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Graph query</text>
+<text x="862" y="381.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">one typed path query</text>
+<text x="1084" y="366" font-size="10.5" font-weight="700" fill="#EA580C" text-anchor="end" letter-spacing="0.08em">planned</text>
+<rect x="846" y="392" width="250" height="38" rx="10" fill="#EA580C" fill-opacity="0.06" stroke="#EA580C" stroke-opacity="0.35"/>
+<text x="862" y="408.0" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Oracle</text>
+<text x="862" y="425.0" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">gold subgraph · upper bound</text>
+<text x="846" y="206" font-size="10.5" font-weight="700" fill="#64748B" text-anchor="start" letter-spacing="0.12em">RETRIEVAL MODE</text>
+<rect x="1124" y="246" width="204" height="156" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<text x="1144" y="276" font-size="15" font-weight="700" fill="#0F172A" text-anchor="start">Cited answer</text>
+<circle cx="1150" cy="300" r="7" fill="#EA580C" fill-opacity="0.15"/>
+<path d="M1146.5,300 l2.5,2.5 l4.5,-5" fill="none" stroke="#EA580C" stroke-width="1.6"/>
+<text x="1164" y="304" font-size="12" font-weight="400" fill="#0F172A" text-anchor="start">edge-id citations</text>
+<circle cx="1150" cy="324" r="7" fill="#EA580C" fill-opacity="0.15"/>
+<path d="M1146.5,324 l2.5,2.5 l4.5,-5" fill="none" stroke="#EA580C" stroke-width="1.6"/>
+<text x="1164" y="328" font-size="12" font-weight="400" fill="#0F172A" text-anchor="start">status-aware wording</text>
+<circle cx="1150" cy="348" r="7" fill="#EA580C" fill-opacity="0.15"/>
+<path d="M1146.5,348 l2.5,2.5 l4.5,-5" fill="none" stroke="#EA580C" stroke-width="1.6"/>
+<text x="1164" y="352" font-size="12" font-weight="400" fill="#0F172A" text-anchor="start">abstains when absent</text>
+<circle cx="1150" cy="372" r="7" fill="#EA580C" fill-opacity="0.15"/>
+<path d="M1146.5,372 l2.5,2.5 l4.5,-5" fill="none" stroke="#EA580C" stroke-width="1.6"/>
+<text x="1164" y="376" font-size="12" font-weight="400" fill="#0F172A" text-anchor="start">per turn, multi-turn</text>
+<path d="M1096,324 H1122" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M750,300 H820" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="749.0" y="289" width="74" height="22" rx="11" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="786" y="304" font-size="11" font-weight="600" fill="#64748B" text-anchor="middle">retrieve</text>
+<rect x="822" y="490" width="530" height="190" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<clipPath id="c4"><rect x="822" y="490" width="530" height="190" rx="16"/></clipPath>
+<rect x="822" y="490" width="530" height="4" fill="#7C3AED" clip-path="url(#c4)"/>
+<circle cx="851" cy="522" r="5" fill="#7C3AED"/>
+<text x="864" y="526" font-size="11.5" font-weight="700" fill="#7C3AED" text-anchor="start" letter-spacing="0.14em">EXAMINER</text>
+<text x="846" y="552" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">Task builder</text>
+<rect x="846" y="572" width="110" height="72" rx="10" fill="#7C3AED" fill-opacity="0.06" stroke="#7C3AED" stroke-opacity="0.35"/>
+<circle cx="864" cy="592" r="9" fill="#7C3AED"/>
+<text x="864" y="596" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+<text x="860" y="620" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Generate</text>
+<text x="860" y="636" font-size="11.5" font-weight="400" fill="#64748B" text-anchor="start">graph keys</text>
+<rect x="968" y="572" width="110" height="72" rx="10" fill="#7C3AED" fill-opacity="0.06" stroke="#7C3AED" stroke-opacity="0.35"/>
+<circle cx="986" cy="592" r="9" fill="#7C3AED"/>
+<text x="986" y="596" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+<text x="982" y="620" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Write</text>
+<text x="982" y="636" font-size="11.5" font-weight="400" fill="#64748B" text-anchor="start">LLM turns</text>
+<path d="M956,608 H966" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="1090" y="572" width="110" height="72" rx="10" fill="#7C3AED" fill-opacity="0.06" stroke="#7C3AED" stroke-opacity="0.35"/>
+<circle cx="1108" cy="592" r="9" fill="#7C3AED"/>
+<text x="1108" y="596" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+<text x="1104" y="620" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Check</text>
+<text x="1104" y="636" font-size="11.5" font-weight="400" fill="#64748B" text-anchor="start">ids · no leaks</text>
+<path d="M1078,608 H1088" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="1212" y="572" width="110" height="72" rx="10" fill="#7C3AED" fill-opacity="0.06" stroke="#7C3AED" stroke-opacity="0.35"/>
+<circle cx="1230" cy="592" r="9" fill="#7C3AED"/>
+<text x="1230" y="596" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+<text x="1226" y="620" font-size="14" font-weight="600" fill="#0F172A" text-anchor="start">Gate</text>
+<text x="1226" y="636" font-size="11.5" font-weight="400" fill="#64748B" text-anchor="start">solver ≥ 0.6</text>
+<path d="M1200,608 H1210" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M750,500 H786 V585 H820" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="735.0" y="529" width="102" height="22" rx="11" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="786" y="544" font-size="11" font-weight="600" fill="#64748B" text-anchor="middle">compute keys</text>
+<path d="M960,490 V452" fill="none" stroke="#7C3AED" stroke-width="1.6" marker-end="url(#arrV)"/>
+<rect x="975.0" y="460" width="74" height="22" rx="11" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="1012" y="475" font-size="11" font-weight="600" fill="#7C3AED" text-anchor="middle">sessions</text>
+<path d="M1240,452 V488" fill="none" stroke="#EA580C" stroke-width="1.6" marker-end="url(#arrO)"/>
+<rect x="1087.5" y="460" width="165" height="22" rx="11" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="1170" y="475" font-size="11" font-weight="600" fill="#EA580C" text-anchor="middle">trajectories → scores</text>
+<path d="M600,552 V704 M213,704 H1087 M1087,680 V704" fill="none" stroke="#94A3B8" stroke-width="1.6"/>
+<path d="M213,704 V718" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M600,704 V718" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<path d="M1087,704 V718" fill="none" stroke="#94A3B8" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="48" y="720" width="330" height="84" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<rect x="68" y="742" width="4" height="40" rx="2" fill="#475569"/>
+<text x="86" y="758" font-size="15" font-weight="700" fill="#0F172A" text-anchor="start">Explorer</text>
+<text x="86" y="778" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">Map › Segment › Entity</text>
+<rect x="450" y="720" width="300" height="84" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<rect x="470" y="742" width="4" height="40" rx="2" fill="#475569"/>
+<text x="488" y="758" font-size="15" font-weight="700" fill="#0F172A" text-anchor="start">Observability</text>
+<text x="488" y="778" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">traces · live monitor · silver labels</text>
+<rect x="822" y="720" width="530" height="84" rx="16" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow)"/>
+<rect x="842" y="742" width="4" height="40" rx="2" fill="#475569"/>
+<text x="860" y="758" font-size="15" font-weight="700" fill="#0F172A" text-anchor="start">Hugging Face release</text>
+<text x="860" y="778" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">kg · bench · runs · labels — private until approved</text>
+<text x="48" y="842" font-size="12" font-weight="400" fill="#64748B" text-anchor="start">Every stage is cached and resumable · dashed = planned</text>
 </svg>

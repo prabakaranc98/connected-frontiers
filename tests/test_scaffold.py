@@ -14,7 +14,14 @@ def test_doctor_runs():
 
 
 def test_unbuilt_command_exits_2():
-    assert CliRunner().invoke(app, ["crawl"]).exit_code == 2
+    # `viz` is still a stub. Never invoke crawl/scout/build/bench in tests: they spend money.
+    assert CliRunner().invoke(app, ["viz"]).exit_code == 2
+
+
+def test_paid_commands_have_help_only():
+    for cmd in ("crawl", "scout", "build", "bench", "silver", "lookup"):
+        r = CliRunner().invoke(app, [cmd, "--help"])
+        assert r.exit_code == 0, cmd
 
 
 def _ev(url="https://www.appliedcompute.com/training"):

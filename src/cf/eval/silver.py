@@ -19,10 +19,9 @@ from rich.console import Console
 
 from cf import config
 from cf.crawl.fetch import Fetcher
-from cf.extract.llm import LLMExtractor, Verifier, XTriple
+from cf.extract.llm import Verifier, XTriple
 from cf.llm.client import LLM
 from cf.resolve.er import Candidate, adjudicate
-from cf.scout import CACHE
 
 GOLD = config.EVAL / "gold"
 console = Console()
@@ -54,17 +53,22 @@ def _majority(votes: list[str], need: int) -> str | None:
 
 # ---- verification silver set ---------------------------------------------------------------
 def sample_verify_items(n: int, seed: int = 7) -> list[dict]:
-    ex = LLMExtractor(config.env("CF_MODEL_EXTRACT"))
-    ve = Verifier(config.env("CF_MODEL_VERIFY"), int(config.env("CF_VERIFY_REASONING_TOKENS", "0").split()[0]))
+    from cf.cache import EXTRACT, LEGACY, VERIFY
     items = []
-    for f in CACHE.glob("*.json"):
-        d = json.loads(f.read_text())
-        if d["extractor"] != ex.version or d["verifier"] != ve.version:
+    ex_by_key = {f.stem: json.loads(f.read_text()) for f in EXTRACT.glob("*.json")} if EXTRACT.exists() else {}
+    for f in (VERIFY.glob("*.json") if VERIFY.exists() else []):
+        v = json.loads(f.read_text()); e = ex_by_key.get(v["extract_key"])
+        if not e:
             continue
-        for t, v in zip(d["triples"], d["verdicts"], strict=True):
-            if v is None:
-                continue
-            items.append({"url": d["url"], "triple": t, "prod_entailed": v["entailed"], "prod_stance": v["stance"]})
+        for t, vd in zip(e["triples"], v["verdicts"], strict=True):
+            if vd is not None:
+                items.append({"url": e["url"], "triple": t, "prod_entailed": vd["entailed"], "prod_stance": vd["stance"]})
+    if not items and LEGACY.exists():          # before the cache split
+        for f in LEGACY.glob("*.json"):
+            d = json.loads(f.read_text())
+            for t, vd in zip(d["triples"], d["verdicts"], strict=True):
+                if vd is not None:
+                    items.append({"url": d["url"], "triple": t, "prod_entailed": vd["entailed"], "prod_stance": vd["stance"]})
     rnd = random.Random(seed)
     rnd.shuffle(items)
     by_rel: dict[str, list[dict]] = defaultdict(list)
