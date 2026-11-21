@@ -25,7 +25,7 @@ CONDITIONS = ["closed_book", "kg_tools", "oracle"]
 
 def load_tasks(version: str = "v0") -> list[dict]:
     path = config.EVAL / "gold" / f"tasks_{version}.jsonl"
-    return [json.loads(line) for line in path.read_text().splitlines()]
+    return [json.loads(line) for line in path.read_text().split("\n") if line.strip()]
 
 
 def run(models: dict[str, int | None], conditions: list[str], version: str = "v0", workers: int = 8,

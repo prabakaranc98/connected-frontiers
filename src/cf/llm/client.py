@@ -156,15 +156,20 @@ class LLM:
         raise RuntimeError(f"LLM call failed after retries: {last}")
 
     def chat(self, messages: list[dict], tools: list[dict] | None = None, name: str = "chat",
-             max_tokens: int = 3000, reasoning_max_tokens: int | None = 800) -> tuple[dict, dict]:
-        """One chat turn (optionally with tools). Returns (assistant message, usage). Logs cost."""
+             max_tokens: int = 3000, reasoning_max_tokens: int | None = 800,
+             schema: dict | None = None, temperature: float = 0.0) -> tuple[dict, dict]:
+        """One chat turn (optionally with tools, or with a strict JSON schema for the reply).
+        Returns (assistant message, usage). Logs cost."""
         if LLM.spent_usd >= self.budget:
             raise BudgetExceeded(f"spent ${LLM.spent_usd:.4f} >= budget ${self.budget}")
-        body = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": max_tokens,
+        body = {"model": self.model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens,
                 "usage": {"include": True}}
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
+            body["provider"] = {"require_parameters": True}
+        if schema:
+            body["response_format"] = {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}}
             body["provider"] = {"require_parameters": True}
         rmt = reasoning_for(self.model, reasoning_max_tokens)
         if rmt == 0:

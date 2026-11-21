@@ -104,3 +104,26 @@ def test_metric_gate_keeps_numeric_names():
     for n, t in [("10x Genomics", "org"), ("11x", "org"), ("10 years of AlphaGo", "paper"),
                  ("3D Gaussian Splatting", "method"), ("4o Image Generation", "technology"), ("GPT-4o", "model")]:
         assert not is_metric(n, t), n
+
+
+def test_jsonl_readers_survive_unicode_line_separators(tmp_path):
+    """A page quote with U+2028 must not split a JSONL record (str.splitlines() does)."""
+    import json
+
+    from cf import release
+    f = tmp_path / "x.jsonl"
+    rows = [{"quote": "a\u2028b"}, {"quote": "c\x85d"}]
+    f.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    assert release._r(f) == rows
+
+
+def test_malformed_hosts_never_raise(tmp_path, monkeypatch):
+    """A DNS label > 63 chars (from a long org name) used to crash whole crawl batches."""
+    from cf.crawl import fetch as F
+    from cf.crawl.frontier import _resolve_domain
+    monkeypatch.setattr(F, "RAW", tmp_path)
+    monkeypatch.setattr(F, "INDEX", tmp_path / "index.jsonl")
+    f = F.Fetcher()
+    assert f.fetch("https://" + "a" * 70 + ".ai/") is None
+    assert f.fetch("https://foo..com/") is None
+    assert _resolve_domain(f, "The Extremely Long Organisation Name For Artificial Intelligence Research") is None

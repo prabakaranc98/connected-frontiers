@@ -38,7 +38,7 @@ def _tail(path, n: int = 14) -> list[dict]:
             f.seek(0, 2)
             size = f.tell()
             f.seek(max(0, size - 64_000))
-            lines = f.read().decode("utf-8", "ignore").splitlines()[-n:]
+            lines = f.read().decode("utf-8", "ignore").split("\n")[-n:]
         return [json.loads(x) for x in lines if x.strip().startswith("{")][::-1]
     except (OSError, ValueError):
         return []

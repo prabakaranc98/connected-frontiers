@@ -9,10 +9,10 @@ from __future__ import annotations
 import heapq
 import itertools
 import json
-from difflib import SequenceMatcher
 from pathlib import Path
 
 import networkx as nx
+from rapidfuzz import fuzz
 
 from cf import config
 from cf.resolve.er import normalize
@@ -35,18 +35,29 @@ class KG:
             self.adj.setdefault(e["tail"], []).append(e["id"])
         self.comms = {c["id"]: c for c in g.get("communities", [])}
         self._names = [(normalize(a, e["type"]), e["id"]) for e in g["entities"] for a in {e["name"], *e.get("aliases", [])}]
+        self._exact: dict[tuple[str, str], set[str]] = {}         # (type, normalized name) → ids: O(1) exact hits
+        for n, eid in self._names:
+            self._exact.setdefault((self.ents[eid]["type"], n), set()).add(eid)
+        self._types = sorted({e["type"] for e in g["entities"]})
         self._nx = None
 
     # ---- helpers --------------------------------------------------------------------------
     def name(self, eid: str) -> str:
         return self.ents[eid]["name"] if eid in self.ents else eid
 
-    def match(self, text: str, k: int = 5, etype: str | None = None) -> list[tuple[float, str]]:
+    def match(self, text: str, k: int = 5, etype: str | None = None, exact_first: bool = False) -> list[tuple[float, str]]:
         """Fuzzy name → entity. The query is normalized the same way as each candidate's type;
-        exact > substring (weighted by length overlap) > fuzzy; ties broken by type and PageRank."""
+        exact > substring (weighted by length overlap) > fuzzy; ties broken by type and PageRank.
+        exact_first: return exact hits without the fuzzy scan (seed linking, answer scoring)."""
         raw = (text or "").casefold().strip()
         if not raw:
             return []
+        if exact_first:
+            hits = {eid for t in ([etype] if etype else self._types) for eid in self._exact.get((t, normalize(text, t)), ())}
+            if hits:
+                pref = {"org": 3, "model": 2, "method": 2, "benchmark": 2, "technology": 1}
+                return sorted(((1.0, h) for h in hits), key=lambda x: (-pref.get(self.ents[x[1]]["type"], 0),
+                                                                     -(self.ents[x[1]].get("pagerank") or 0)))[:k]
         qn_by_type: dict[str, str] = {}
         best: dict[str, float] = {}
         for n, eid in self._names:
@@ -61,7 +72,7 @@ class KG:
             elif len(q) >= 4 and (f" {q} " in f" {n} " or f" {n} " in f" {q} "):
                 s = 0.55 + 0.35 * min(len(q), len(n)) / max(len(q), len(n))
             else:
-                s = SequenceMatcher(None, q, n).ratio() * 0.75
+                s = fuzz.ratio(q, n) / 100 * 0.75             # rapidfuzz (C): same Indel ratio as difflib
             if s > best.get(eid, 0):
                 best[eid] = s
         pref = {"org": 3, "model": 2, "method": 2, "benchmark": 2, "technology": 1}

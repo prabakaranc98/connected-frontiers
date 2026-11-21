@@ -122,7 +122,7 @@ def _write(path: Path, rows: list[dict]) -> None:
 
 
 def _read(path: Path) -> list[dict]:
-    return [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
+    return [json.loads(x) for x in path.read_text().split("\n") if x.strip()] if path.exists() else []
 
 
 class DocIndex:

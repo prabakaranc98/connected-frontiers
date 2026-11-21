@@ -141,7 +141,9 @@ def status(ex, ve, cost_per_page: float = 0.0025) -> dict:
     raw_index = config.DATA / "raw" / "index.jsonl"
     fetched: dict[str, str] = {}
     if raw_index.exists():
-        for line in raw_index.read_text().splitlines():
+        for line in raw_index.read_text().split("\n"):
+            if not line.strip():
+                continue
             r = json.loads(line)
             if r.get("sha"):
                 fetched[r["url"]] = r["fetched_at"]

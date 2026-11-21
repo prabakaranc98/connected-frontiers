@@ -157,15 +157,27 @@ def sessions(n: int = typer.Option(12), seed: int = typer.Option(11), version: s
         console.print(f"  [yellow]rejected[/] {r['template']} {r['anchors']}: {r['reasons']}")
 
 
+@app.command("silver-kb")
+def silver_kb(kb_version: str = typer.Option(None, "--kb"), n_er: int = typer.Option(80)) -> None:
+    """Scorecard layer 1: does the status ladder mean something on this KB? (+ verifier and ER vs silver)"""
+    import json
+
+    from cf.eval.silver import run_kb
+
+    console.print_json(json.dumps(run_kb(kb_version, n_er)))
+
+
 @app.command("sessions-bench")
 def sessions_bench(models: list[str] = typer.Option(None), conditions: list[str] = typer.Option(None),
-                   version: str = typer.Option("s1")) -> None:
+                   version: str = typer.Option("s1"), trials: int = typer.Option(1, help="k trials per session (pass^k)"),
+                   temperature: float = typer.Option(0.0), workers: int = typer.Option(6)) -> None:
     """Run models on the multi-turn sessions (closed_book | kg_tools | oracle); per-turn scores → reports/."""
     from cf.bench import sessions as S
     from cf.bench.run import MODELS
 
     ms = {m: MODELS.get(m, 'auto') for m in models} if models else MODELS
-    _, md = S.bench(ms, conditions or ["closed_book", "kg_tools", "oracle"], version)
+    _, md = S.bench(ms, conditions or ["closed_book", "kg_tools", "oracle"], version, workers=workers,
+                    trials=trials, temperature=temperature)
     console.print(md)
 
 
@@ -321,9 +333,13 @@ def viz() -> None:
 
 
 @app.command("eval")
-def eval_(suite: str = typer.Option("all", help="crawl | extract | resolve | linkpred | reason | all")) -> None:
-    """Run the evaluation harness (EVAL.md)."""
-    _todo("M1", f"eval suite={suite}")
+def eval_(kb_version: str = typer.Option(None, "--kb", help="KB version (default CURRENT)")) -> None:
+    """Scorecard for one KB version: truth (silver), coverage, structure, usefulness (sessions), cost, churn."""
+    from cf.eval.scorecard import write
+
+    path, _ = write(kb_version)
+    console.print(path.read_text())
+    console.print(f"[green]→ {path}[/]")
 
 
 @app.command()

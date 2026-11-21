@@ -257,3 +257,64 @@ def _owner_review(v_items: list[dict], e_items: list[dict], version: str) -> Non
             votes = ", ".join(f"{m.split('/')[1][:12]}={v}" for m, v in d.get("votes", {}).items())
             lines.append(f"| {d['id']} | {d['name_a']} | {d['name_b']} | {d['type_a']} | {votes} | {d['verdict']} | |")
     (GOLD / f"owner_review_{version}.md").write_text("\n".join(lines) + "\n")
+
+
+# ---- KB-level calibration: does the status ladder mean something? ---------------------------------
+STRATA = {"unsupported": 25, "claimed": 30, "confirmed": 30, "corroborated": 30, "verified": 30}
+
+
+def sample_edge_items(kb_version: str | None = None, strata: dict = STRATA, seed: int = 7) -> tuple[list[dict], dict]:
+    """Edges of a KB version, stratified by status; each judged on its first page citation.
+    Adapter-verified edges (structured API facts, no page quote) are counted, not judged."""
+    from cf import kb
+    g = json.loads(kb.graph_path(kb_version).read_text())
+    names = {e["id"]: e for e in g["entities"]}
+    rnd = random.Random(seed)
+    by: dict[str, list] = defaultdict(list)
+    adapter = 0
+    for e in g["edges"]:
+        page_ev = [x for x in e["evidence"] if not x["extractor_version"].startswith("adapter")]
+        if not page_ev:
+            adapter += 1
+            continue
+        by[e["status"]].append((e, page_ev[0]))
+    out = []
+    for st, n in strata.items():
+        pool = by.get(st, [])
+        rnd.shuffle(pool)
+        for e, ev in pool[:n]:
+            h, t = names[e["head"]], names[e["tail"]]
+            out.append({"id": f"k{len(out):04d}", "edge_id": e["id"], "status": st, "url": ev["source_url"],
+                        "triple": {"head": h["name"], "head_type": h["type"], "relation": e["relation"], "tail": t["name"],
+                                   "tail_type": t["type"], "quote": ev["quote"], "claim_kind": e["claim_kind"]},
+                        "prod_entailed": bool(ev["entailed"]), "prod_stance": ev["stance"]})
+    return out, {"adapter_verified_edges_not_judged": adapter, "pool_sizes": {k: len(v) for k, v in by.items()}}
+
+
+def run_kb(kb_version: str | None = None, n_er: int = 80, version: str = "kb") -> dict:
+    """Scorecard layer 1 on one KB version: status calibration, verifier vs silver, ER vs silver."""
+    from cf import kb
+    v = kb_version or kb.current()
+    spend0 = LLM.spent_usd
+    items, meta = sample_edge_items(v)
+    console.print(f"edge items: {len(items)} (stratified by status) → judging with {len(JUDGES)} models…")
+    judge_verify(items)
+    v_sum = summarize_verify(items)
+    per_status = {}
+    for st in STRATA:
+        lab = [it["silver"] for it in items if it["status"] == st and it.get("silver")]
+        per_status[st] = {"judged": len(lab), "silver_supported": round(sum(x == "yes" for x in lab) / len(lab), 3) if lab else None}
+    e_items = sample_er_items(n_er)
+    console.print(f"ER items: {len(e_items)} → judging…")
+    judge_er(e_items)
+    e_sum = summarize_er(e_items)
+    tag = f"{version}_{v}"
+    for name, rows in (("silver_edges", items), ("silver_er", e_items)):
+        with (GOLD / f"{name}_{tag}.jsonl").open("w") as f:
+            for it in rows:
+                f.write(json.dumps(it, ensure_ascii=False) + "\n")
+    summary = {"kb_version": v, "judges": [m for m, _ in JUDGES], "status_calibration": per_status, **meta,
+               "verification": v_sum, "entity_resolution": e_sum, "spend_usd": round(LLM.spent_usd - spend0, 4)}
+    (GOLD / f"silver_summary_{tag}.json").write_text(json.dumps(summary, indent=1))
+    _owner_review(items, e_items, tag)
+    return summary

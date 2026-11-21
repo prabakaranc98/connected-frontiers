@@ -25,7 +25,9 @@ class GraphRAG:
                 gram = " ".join(words[i:i + n])
                 if len(gram) < 3:
                     continue
-                m = self.kg.match(gram, k=1)
+                m = self.kg.match(gram, k=1, exact_first=True)
+                if m and m[0][0] < 0.95:                      # seeds need (near-)exact names: skip the fuzzy tail
+                    continue
                 if m and m[0][0] >= 0.95 and m[0][1] not in found and not is_generic(self.kg.name(m[0][1])):
                     found[m[0][1]] = m[0][0] * n
         return [e for e, _ in sorted(found.items(), key=lambda x: -x[1])][:k]

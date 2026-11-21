@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from cf import config
 from cf.agent.kg import KG
 from cf.crawl.noise import is_generic
-from cf.llm.client import LLM
+from cf.llm.client import LLM, strict_schema
 
 SUPPORTED = {"claimed", "confirmed", "corroborated", "verified"}
 
@@ -93,7 +93,8 @@ def spec_landscape(kg: KG, rnd: random.Random) -> dict | None:
         for e in _edges(kg, {"uses_method", "offers"}, "org"):
             if e["head"] in players and kg.ents[e["tail"]]["type"] in ("method", "technology") and _ok(kg, e["tail"]):
                 by_m[e["tail"]].append(e)
-        ms = [m for m, es in by_m.items() if len({x["head"] for x in es}) >= 2]
+        ms = [m for m, es in by_m.items()                 # methods; technologies only when widely used
+              if len({x["head"] for x in es}) >= (2 if kg.ents[m]["type"] == "method" else 3)]
         if not ms:
             continue
         m = rnd.choice(ms)
@@ -154,18 +155,96 @@ def spec_lineage(kg: KG, rnd: random.Random) -> dict | None:
         sib = sorted(h for h, es in base_of.items() if h != x and any(z["tail"] == base for z in es))
         if not offer:
             continue
-        return {"template": "lineage", "anchors": [x], "turns": [
-            {"intent": f"Ask what model '{kg.name(x)}' is built on.", "key": {"kind": "set", "ids": [base]}},
-            {"intent": "Ask how it was derived from that base (for example fine-tuned, quantized, merged).",
-             "key": {"kind": "labels", "labels": {base: (e.get("attrs") or {}).get("derivation", "unknown")}}},
-            {"intent": "Ask which organisation offers that base model.", "key": {"kind": "set", "ids": offer}},
-            {"intent": "Ask which other models are built on the same base; it is fine if there are none.",
-             "key": {"kind": "set", "ids": sib[:30], "allow_empty": True}},
-        ], "gold_edge_ids": [e["id"]] + [o["id"] for o in _edges(kg, {"offers"}) if o["tail"] == base]}
+        deriv = (e.get("attrs") or {}).get("derivation")
+        turns = [{"intent": f"Ask what model '{kg.name(x)}' is built on.", "key": {"kind": "set", "ids": [base]}}]
+        if deriv:                                       # only when the source records it (HF metadata)
+            turns.append({"intent": "Ask how it was derived from that base (for example fine-tuned, quantized, merged).",
+                          "key": {"kind": "labels", "labels": {base: deriv}}})
+        turns += [{"intent": "Ask which organisation offers that base model.", "key": {"kind": "set", "ids": offer}},
+                  {"intent": "Ask which other models are built on the same base; it is fine if there are none.",
+                   "key": {"kind": "set", "ids": sib[:30], "allow_empty": True}}]
+        sib_edges = [z["id"] for h in sib[:30] for z in base_of[h] if z["tail"] == base]
+        return {"template": "lineage", "anchors": [x], "turns": turns,
+                "gold_edge_ids": [e["id"]] + [o["id"] for o in _edges(kg, {"offers"}) if o["tail"] == base] + sib_edges}
     return None
 
 
-GENERATORS = {"opportunity": spec_opportunity, "landscape": spec_landscape, "learn": spec_learn, "lineage": spec_lineage}
+def spec_benchmark(kg: KG, rnd: random.Random) -> dict | None:
+    """benchmark → models reporting on it → who offers them → what else those models are measured on."""
+    on = defaultdict(set)
+    for e in _edges(kg, {"measured_on"}, "model", "benchmark"):
+        on[e["tail"]].add(e["head"])
+    bs = [b for b, ms in on.items() if 3 <= len(ms) <= 15 and _ok(kg, b)]
+    rnd.shuffle(bs)
+    for b in bs:
+        models = sorted(m for m in on[b] if _ok(kg, m))
+        offers = [e for e in _edges(kg, {"offers"}, "org") if e["tail"] in models]
+        other = [e for e in _edges(kg, {"measured_on"}, "model", "benchmark") if e["head"] in models and e["tail"] != b and _ok(kg, e["tail"])]
+        others = sorted({e["tail"] for e in other})
+        if len(models) < 3 or len(others) > 12:
+            continue
+        return {"template": "benchmark", "anchors": [b], "turns": [
+            {"intent": f"Ask which models report results on the benchmark '{kg.name(b)}'.", "key": {"kind": "set", "ids": models}},
+            {"intent": "Ask which organisations offer those models; it is fine if there are none.",
+             "key": {"kind": "set", "ids": sorted({e['head'] for e in offers}), "allow_empty": True}},
+            {"intent": "Ask which other benchmarks those same models are also evaluated on; it is fine if there are none.",
+             "key": {"kind": "set", "ids": others, "allow_empty": True}},
+        ], "gold_edge_ids": [e["id"] for e in _edges(kg, {"measured_on"}) if e["tail"] == b and e["head"] in models]
+                           + [e["id"] for e in offers] + [e["id"] for e in other]}
+    return None
+
+
+def spec_customers(kg: KG, rnd: random.Random) -> dict | None:
+    """provider → its customers → how well each relationship is evidenced → which customers also use another provider."""
+    serves = defaultdict(list)
+    for e in _edges(kg, {"serves"}, "org", "org"):
+        serves[e["head"]].append(e)
+    ps = [p for p, es in serves.items() if 3 <= len({e["tail"] for e in es}) <= 12 and _ok(kg, p)]
+    rnd.shuffle(ps)
+    for p in ps:
+        es = [e for e in serves[p] if _ok(kg, e["tail"])]
+        custs = sorted({e["tail"] for e in es})
+        if len(custs) < 3:
+            continue
+        also = [e for q, qs in serves.items() if q != p for e in qs if e["tail"] in custs]
+        return {"template": "customers", "anchors": [p], "turns": [
+            {"intent": f"Ask which customers '{kg.name(p)}' serves.", "key": {"kind": "set", "ids": custs}},
+            {"intent": "Ask, for each of those customers, whether the relationship is verified, corroborated, confirmed by "
+                       "the other party, or only claimed by the provider.",
+             "key": {"kind": "labels", "labels": {e["tail"]: e["status"] for e in sorted(es, key=lambda x: x["strength"])}}},
+            {"intent": "Ask which of those customers are also served by another provider in the ecosystem; it is fine if none.",
+             "key": {"kind": "set", "ids": sorted({e['tail'] for e in also}), "allow_empty": True}},
+        ], "gold_edge_ids": [e["id"] for e in es] + [e["id"] for e in also]}
+    return None
+
+
+def spec_talent(kg: KG, rnd: random.Random) -> dict | None:
+    """org → roles it hires for → other orgs hiring for the same roles (education: what the frontier hires for)."""
+    hires = defaultdict(set)
+    for e in _edges(kg, {"hires_for"}, "org"):
+        if _ok(kg, e["tail"]):
+            hires[e["head"]].add(e["tail"])
+    by_role = defaultdict(set)
+    for o, rs in hires.items():
+        for r in rs:
+            by_role[r].add(o)
+    orgs = [o for o, rs in hires.items() if 2 <= len(rs) <= 10 and _ok(kg, o)]
+    rnd.shuffle(orgs)
+    for o in orgs:
+        roles = sorted(hires[o])
+        peers = sorted({q for r in roles for q in by_role[r] if q != o})
+        if not peers or len(peers) > 15:
+            continue
+        return {"template": "talent", "anchors": [o], "turns": [
+            {"intent": f"Ask which roles '{kg.name(o)}' is hiring for.", "key": {"kind": "set", "ids": roles}},
+            {"intent": "Ask which other organisations hire for at least one of those same roles.", "key": {"kind": "set", "ids": peers}},
+        ], "gold_edge_ids": [e["id"] for e in _edges(kg, {"hires_for"}) if e["tail"] in roles and (e["head"] == o or e["head"] in peers)]}
+    return None
+
+
+GENERATORS = {"opportunity": spec_opportunity, "landscape": spec_landscape, "learn": spec_learn, "lineage": spec_lineage,
+              "benchmark": spec_benchmark, "customers": spec_customers, "talent": spec_talent}
+ANCHOR_CAP = 2                                          # sessions per anchor entity, across templates
 
 
 # ---- writer (LLM): intents → natural multi-turn user messages, no answers inside --------------
@@ -185,7 +264,9 @@ instead of repeating names; never include an answer or a hint of one; keep each 
 Return the persona you used (one short phrase) and the turns."""
 
 PERSONAS = {"opportunity": "a founder looking for what to build", "landscape": "a CTO choosing a vendor",
-            "learn": "an engineer learning the field", "lineage": "a researcher tracing model lineage"}
+            "learn": "an engineer learning the field", "lineage": "a researcher tracing model lineage",
+            "benchmark": "an ML engineer comparing evaluations", "customers": "an investor checking traction claims",
+            "talent": "a student planning a career in frontier AI"}
 
 
 def write(spec: dict, model: str) -> dict:
@@ -219,11 +300,12 @@ def check(kg: KG, s: dict) -> list[str]:
     return problems
 
 
-SOLVER = "nvidia/nemotron-3.5-lightning"           # gate: a different family from the writer
+SOLVER = "nvidia/nemotron-3.5-lightning"           # gate: different families from the writer (Inkling)
+SOLVERS = [SOLVER, "mistralai/mistral-small-2603"]   # pass if either solves every turn from the gold evidence
 GATE = 0.6
 
 
-def build(n: int = 12, seed: int = 11, writer: str | None = None, solver: str = SOLVER,
+def build(n: int = 12, seed: int = 11, writer: str | None = None, solvers: list[str] = SOLVERS,
           gate: float = GATE) -> tuple[list[dict], list[dict]]:
     """generate (graph algorithm) → write (Inkling) → check (deterministic) → solve (Nemotron, oracle):
     a session is accepted only if the solver, given the gold subgraph, scores ≥ gate on average."""
@@ -234,14 +316,17 @@ def build(n: int = 12, seed: int = 11, writer: str | None = None, solver: str = 
     accepted, rejected = [], []
     names = list(GENERATORS)
     tries = 0
-    while len(accepted) < n and tries < n * 4:
+    seen_anchor: Counter = Counter()
+    while len(accepted) < n and tries < n * 8:
         tmpl = names[tries % len(names)]
         tries += 1
         spec = GENERATORS[tmpl](kg, rnd)
         if not spec:
             continue
-        if any(s["anchors"] == spec["anchors"] and s["template"] == tmpl for s in accepted):
+        if any(s["anchors"] == spec["anchors"] and s["template"] == tmpl for s in accepted + rejected) \
+                or seen_anchor[spec["anchors"][0]] >= ANCHOR_CAP:
             continue
+        seen_anchor[spec["anchors"][0]] += 1
         try:
             s = write(spec, writer)
         except RuntimeError as e:
@@ -255,11 +340,19 @@ def build(n: int = 12, seed: int = 11, writer: str | None = None, solver: str = 
         s["id"] = f"S-{tmpl}-{len(accepted) + len(rejected):03d}"
         s["kb_version"] = kg.kb_version
         s["writer"] = writer
-        r = run_session(solver, s, "oracle", kg, reasoning=0)
-        s["gate"] = {"solver": solver, "condition": "oracle", "turn_scores": r["turn_scores"],
-                     "mean": r["mean_score"], "passed": r["mean_score"] >= gate, "cost_usd": r["cost_usd"]}
-        (accepted if s["gate"]["passed"] else rejected).append(
-            s if s["gate"]["passed"] else {**s, "reasons": [f"solver gate {r['mean_score']} < {gate}"]})
+        attempts, ok = [], False
+        for solver in solvers:
+            r = run_session(solver, s, "oracle", kg, reasoning=0)
+            passed = r["mean_score"] >= gate and min(r["turn_scores"]) > 0   # every turn answerable from its gold
+            attempts.append({"solver": solver, "turn_scores": r["turn_scores"], "mean": r["mean_score"],
+                          "passed": passed, "cost_usd": r["cost_usd"]})
+            if passed:
+                ok = True
+                break
+        s["gate"] = {"condition": "oracle", "passed": ok, "tries": attempts, "turn_scores": attempts[-1]["turn_scores"],
+                     "mean": attempts[-1]["mean"], "cost_usd": round(sum(t["cost_usd"] for t in attempts), 5)}
+        (accepted if ok else rejected).append(
+            s if ok else {**s, "reasons": [f"solver gate: {[(t['solver'].split('/')[-1], t['turn_scores']) for t in attempts]}"]})
     return accepted, rejected
 
 
@@ -287,27 +380,42 @@ def _letters(x: str) -> str:
     return re.sub(r"[^a-z]", "", x.lower())
 
 
-def score_turn(kg: KG, key: dict, items: list[dict]) -> float:
+def turn_detail(kg: KG, key: dict, items: list[dict]) -> dict:
+    """Score one turn and say WHY: precision (wrong entities named), recall (right ones missed),
+    and citation validity (cited edge ids exist in the KB and touch the entity they are cited for)."""
     def res(n):
-        m = kg.match(n or "", k=1)
+        m = kg.match(n or "", k=1, exact_first=True)
         return m[0][1] if m and m[0][0] >= 0.75 else None
-    got = {r for r in (res(it.get("name")) for it in items if isinstance(it, dict)) if r}
+    items = [it for it in items or [] if isinstance(it, dict)]
+    resolved = [(it, res(it.get("name"))) for it in items]
+    got = {r for _, r in resolved if r}
+    cites = [(r, str(c).strip("[] ").removeprefix("edge_id:").strip()) for it, r in resolved for c in (it.get("edge_ids") or [])]
+    valid = [c for _, c in cites if c in kg.edges]
+    relevant = [c for r, c in cites if c in kg.edges and r in (kg.edges[c]["head"], kg.edges[c]["tail"])]
+    d = {"n_pred": len(items), "n_resolved": len(got), "unresolved": [it.get("name") for it, r in resolved if not r][:5],
+         "citations": len(cites), "citations_valid": len(valid), "citations_relevant": len(relevant)}
     if key["kind"] == "labels":
         gold = key["labels"]
-        pred = {res(it.get("name")): str(it.get("label") or "") for it in items if isinstance(it, dict)}
+        pred = {r: str(it.get("label") or "") for it, r in resolved}
         if all(v in STATUSES for v in gold.values()):
-            return round(sum(_status(pred.get(k, "")) == v for k, v in gold.items()) / len(gold), 3)
-        anyl = " ".join(pred.values())                # derivation: label may sit on either model
-        return round(sum(_letters(v)[:6] in _letters(pred.get(k, "") or anyl) for k, v in gold.items()) / len(gold), 3)
+            ok = sum(_status(pred.get(k, "")) == v for k, v in gold.items())
+        else:
+            anyl = " ".join(pred.values())                # derivation: label may sit on either model
+            ok = sum(_letters(v)[:6] in _letters(pred.get(k, "") or anyl) for k, v in gold.items())
+        return {**d, "score": round(ok / len(gold), 3), "precision": None, "recall": round(len(got & set(gold)) / len(gold), 3)}
     gold = set(key.get("ids", []))
-    if not gold:
-        return 1.0 if not got else 0.0                     # correct abstention
-    if key["kind"] == "single":
-        return 1.0 if got & gold and len(got) <= 2 else 0.0
+    if not gold:                                           # correct abstention
+        return {**d, "score": 1.0 if not got else 0.0, "precision": None if not got else 0.0, "recall": None}
     tp = len(got & gold)
     p, r = tp / max(len(got), 1), tp / len(gold)
-    return round(2 * p * r / (p + r), 3) if p + r else 0.0
+    if key["kind"] == "single":
+        return {**d, "score": 1.0 if got & gold and len(got) <= 2 else 0.0, "precision": round(p, 3), "recall": round(r, 3)}
+    return {**d, "score": round(2 * p * r / (p + r), 3) if p + r else 0.0,
+            "precision": round(p, 3) if got else None, "recall": round(r, 3)}
 
+
+def score_turn(kg: KG, key: dict, items: list[dict]) -> float:
+    return turn_detail(kg, key, items)["score"]
 
 
 # ---- oracle context: the gold subgraph plus the few computed facts the keys depend on -------------
@@ -343,28 +451,65 @@ def add_facts(kg: KG, s: dict) -> dict:
 
 
 # ---- multi-turn runner: one conversation, a JSON answer per turn, scored per turn --------------------
+class AnswerItem(_Strict):
+    name: str
+    label: str
+    edge_ids: list[str]
+
+
+class TurnAnswer(_Strict):
+    answer: str
+    items: list[AnswerItem]
+
+
+SCHEMA = strict_schema(TurnAnswer)
+FORMAT = ("Now give your final answer to my last question as JSON. items = the entities that ARE the answer "
+          "(not the entity the question is about); label only if the question asks for one, else empty.")
+TOOL_TURN = """This is a multi-turn conversation. For each user message, first use the tools to find the evidence
+(several calls are fine), then answer in short prose, citing edge ids like [edge_id]. After that you will be asked
+for the structured form of your answer."""
+
+QUERY_HINT = """
+Prefer ONE graph_query over many single-hop calls: find the start entity id, then express the multi-hop
+question as a path, e.g. orgs working on a problem → their methods:
+path=[{"relation":"works_on","direction":"in","type":"org"},{"relation":"uses_method","direction":"out"}].
+"""
+
 TURN_CONTRACT = """This is a multi-turn conversation. After each user message, reply with ONLY one JSON object:
 {"answer": "<short prose; cite edge ids like [edge_id]>",
  "items": [{"name": "<entity name>", "label": "<label if the question asks for one, else empty>", "edge_ids": ["..."]}]}
-List every entity that answers the question in items (empty list if the answer is none)."""
+items = the entities that ARE the answer to this turn's question, by name, e.g. for "what is X built on?" list
+the base model, not X; for "which of them use M?" list those organisations, not M. Never list the entity the
+question is about. Empty list if the answer is none."""
 
 
-def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max_steps: int = 6) -> dict:
+def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max_steps: int = 6,
+                temperature: float = 0.0, trial: int = 0) -> dict:
     import time
 
     from cf import trace
     from cf.agent import harness as H
-    from cf.agent.kg import TOOL_SPECS
+    from cf.agent.kg import QUERY_SPECS, TOOL_SPECS
     llm = LLM(model)
     t0, spend0 = time.time(), LLM.spent_usd
-    base = {"kg_tools": H.SYSTEM_TOOLS, "oracle": H.SYSTEM_ORACLE, "closed_book": H.SYSTEM_CLOSED}[condition]
-    messages = [{"role": "system", "content": base.split("When you are done")[0] + TURN_CONTRACT}]
-    tools = TOOL_SPECS if condition == "kg_tools" else None
+    base = {"kg_tools": H.SYSTEM_TOOLS, "graph_query": H.SYSTEM_TOOLS + QUERY_HINT, "oracle": H.SYSTEM_ORACLE,
+            "graph_rag": H.SYSTEM_ORACLE, "closed_book": H.SYSTEM_CLOSED}[condition]
+    contract = TOOL_TURN if condition in ("kg_tools", "graph_query") else TURN_CONTRACT
+    messages = [{"role": "system", "content": base.split("When you are done")[0] + contract}]
+    tools = {"kg_tools": TOOL_SPECS, "graph_query": QUERY_SPECS}.get(condition)
+    allowed = {x["function"]["name"] for x in tools or []}
     turns, calls = [], []
     for i, (msg_text, t) in enumerate(zip(s["messages"], s["turns"], strict=True)):
         content = msg_text
         if condition == "oracle" and i == 0:
             content = f"KNOWLEDGE GRAPH EXCERPT:\n{oracle_context(kg, s)}\n\n{msg_text}"
+        elif condition == "graph_rag":                 # fixed retrieval per turn, on the conversation so far
+            r = kg.search_text(" ".join(s["messages"][:i + 1]), k=8)
+            ctx = "\n".join([f"[{p['chunk_id']}] ({p['url']}) {p['text']}" for p in r["passages"]]
+                            + [f"[{e['edge_id']}] {e['head']} —{e['relation']}→ {e['tail']} (status: {e['status']})"
+                               for e in r["supporting_edges"]])
+            calls.append({"turn": i, "step": 0, "tool": "graph_rag.retrieve", "args": None, "touched": H._touched(r)})
+            content = f"RETRIEVED PASSAGES AND EDGES:\n{ctx}\n\n{msg_text}"
         messages.append({"role": "user", "content": content})
         final = None
         for step in range(max_steps):
@@ -373,7 +518,8 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
                 messages.append({"role": "user", "content": "Step budget reached. Answer now with the JSON object."})
             try:
                 m, _ = llm.chat(messages, tools=None if last else tools, name=f"session_{condition}",
-                                max_tokens=2500, reasoning_max_tokens=reasoning)
+                                max_tokens=2500, reasoning_max_tokens=reasoning,
+                                schema=None if tools and not last else SCHEMA, temperature=temperature)
             except RuntimeError as e:
                 final = {"answer": "", "items": [], "error": str(e)[:200]}
                 break
@@ -384,24 +530,36 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
                     fn = tc["function"]["name"]
                     try:
                         args = json.loads(tc["function"].get("arguments") or "{}")
-                        result = getattr(kg, fn)(**args) if fn in {x["function"]["name"] for x in TOOL_SPECS} else {"error": "unknown tool"}
+                        result = getattr(kg, fn)(**args) if fn in allowed else {"error": "unknown tool"}
                     except (TypeError, ValueError, KeyError) as e:
                         result = {"error": f"bad arguments: {e}"}
                     calls.append({"turn": i, "step": step, "tool": fn, "args": tc["function"].get("arguments"),
                                   "touched": H._touched(result)})
                     messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result)[:6000]})
                 continue
-            final = H._parse_final(m.get("content") or "")
-            messages.append({"role": "assistant", "content": m.get("content") or ""})
+            text = m.get("content") or ""
+            if tools:                                      # tool modes: the walk ends in prose → structured re-ask
+                messages.append({"role": "assistant", "content": text})
+                try:
+                    m2, _ = llm.chat(messages + [{"role": "user", "content": FORMAT}], name=f"session_{condition}_format",
+                                     max_tokens=2000, reasoning_max_tokens=reasoning, schema=SCHEMA, temperature=temperature)
+                    final = H._parse_final(m2.get("content") or "")
+                except RuntimeError as e:
+                    final = {**H._parse_final(text), "format_error": str(e)[:120]}
+            else:                                          # single call already constrained by the schema
+                final = H._parse_final(text)
+                messages.append({"role": "assistant", "content": text})
             break
         final = final or {"answer": "", "items": [], "error": "no answer"}
-        sc = score_turn(kg, t["key"], final.get("items") or [])
-        turns.append({"turn": i, "score": sc, "items": final.get("items"), "answer": (final.get("answer") or "")[:1500],
-                      "error": final.get("error") or ("parse_error" if final.get("parse_error") else None)})
+        det = turn_detail(kg, t["key"], final.get("items") or [])
+        fmt_err = final.get("format_error") or ("parse_error" if final.get("parse_error") else None)
+        turns.append({"turn": i, "score": det["score"], "detail": det, "items": final.get("items"),
+                      "answer": (final.get("answer") or "")[:1500], "error": final.get("error"), "format_error": fmt_err})
         if final.get("error"):
             break
     scores = [t["score"] for t in turns] + [0.0] * (len(s["turns"]) - len(turns))
     out = {"session_id": s["id"], "template": s["template"], "model": model, "condition": condition,
+           "trial": trial, "temperature": temperature,
            "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "turns": turns, "steps": calls,
            "turn_scores": scores, "mean_score": round(sum(scores) / len(scores), 3),
            "all_turns_pass": all(x >= 0.5 for x in scores),
@@ -412,37 +570,33 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
 
 def load(version: str) -> list[dict]:
     path = config.EVAL / "gold" / f"sessions_{version}.jsonl"
-    return [json.loads(x) for x in path.read_text().splitlines()]
+    return [json.loads(x) for x in path.read_text().split("\n") if x.strip()]
 
 
-def bench(models: dict, conditions: list[str], version: str, workers: int = 6) -> tuple[list[dict], str]:
+def bench(models: dict, conditions: list[str], version: str, workers: int = 6, trials: int = 1,
+          temperature: float = 0.0) -> tuple[list[dict], str]:
+    """Every model × mode × session × trial. Results → eval/results/sessions_<v>_<stamp>.jsonl;
+    report with intervals and paired mode comparisons → reports/<stamp>-sessions-<v>.md."""
     from concurrent.futures import ThreadPoolExecutor
     from datetime import UTC, datetime
+
+    from cf.bench.session_report import render, summarize
     kg = KG()
     ss = load(version)
     if any(s["kb_version"] != kg.kb_version for s in ss):
         raise SystemExit(f"sessions are pinned to {ss[0]['kb_version']}, CURRENT is {kg.kb_version}: `cf kb use` first")
-    jobs = [(m, r, c, s) for m, r in models.items() for c in conditions for s in ss]
+    _ = kg.rag                                               # build the GraphRAG index once, before threads
+    jobs = [(m, r, c, s, t) for m, r in models.items() for c in conditions for s in ss for t in range(trials)]
     spend0 = LLM.spent_usd
     with ThreadPoolExecutor(workers) as pool:
-        res = list(pool.map(lambda j: run_session(j[0], j[3], j[2], kg, reasoning=j[1]), jobs))
+        res = list(pool.map(lambda j: run_session(j[0], j[3], j[2], kg, reasoning=j[1], temperature=temperature, trial=j[4]), jobs))
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
     out = config.EVAL / "results" / f"sessions_{version}_{stamp}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in res))
-    rows = defaultdict(list)
-    for r in res:
-        rows[(r["model"], r["condition"])].append(r)
-    md = [f"# Multi-turn sessions `{version}` · KB `{kg.kb_version}` · {len(ss)} sessions · spend ${LLM.spent_usd - spend0:.3f}", "",
-          "| model | condition | mean turn score | sessions all-turns-pass | turn 1 | turn 2 | turn 3 | turn 4 | tool calls | $ |",
-          "|---|---|---|---|---|---|---|---|---|---|"]
-    for (m, c), rs in sorted(rows.items(), key=lambda kv: -sum(r["mean_score"] for r in kv[1])):
-        by_t = [[r["turn_scores"][i] for r in rs if len(r["turn_scores"]) > i] for i in range(4)]
-        md.append(f"| {m.split('/')[-1]} | {c} | {sum(r['mean_score'] for r in rs) / len(rs):.2f} | "
-                  f"{sum(r['all_turns_pass'] for r in rs)}/{len(rs)} | "
-                  + " | ".join(f"{sum(x) / len(x):.2f}" if x else "–" for x in by_t)
-                  + f" | {sum(len(r['steps']) for r in rs) / len(rs):.1f} | {sum(r['cost_usd'] for r in rs):.3f} |")
-    text = "\n".join(md) + "\n"
+    title = (f"Multi-turn sessions `{version}` · KB `{kg.kb_version}` · {len(ss)} sessions × {trials} trial(s) at "
+             f"T={temperature} · spend ${LLM.spent_usd - spend0:.3f}")
+    text = render(summarize(res), title)
     rep = config.ROOT / "reports" / f"{stamp}-sessions-{version}.md"
     rep.parent.mkdir(parents=True, exist_ok=True)
     rep.write_text(text)

@@ -35,7 +35,9 @@ def compute() -> dict:
 
     # ---- A. crawl scale ------------------------------------------------------------------
     last: dict[str, str] = {}
-    for line in (config.DATA / "raw" / "index.jsonl").read_text().splitlines():
+    for line in (config.DATA / "raw" / "index.jsonl").read_text().split("\n"):
+        if not line.strip():
+            continue
         r = json.loads(line)
         last[r["url"]] = r["status"]
     fails = Counter(s.split(":")[0] for s in last.values() if s != "ok")
@@ -113,7 +115,7 @@ def compute() -> dict:
                                                            key=lambda i: -(ents[i].get("pagerank") or 0))[:10]]}
 
     # ---- F. cost & time ------------------------------------------------------------------
-    calls = [json.loads(line) for line in (config.DATA / "interim" / "llm_calls.jsonl").read_text().splitlines()]
+    calls = [json.loads(line) for line in (config.DATA / "interim" / "llm_calls.jsonl").read_text().split("\n") if line.strip()]
     current = {summary["extractor"].split(":", 1)[1], summary["verifier"].split(":")[1]}
     by_call = defaultdict(list)
     for c in calls:

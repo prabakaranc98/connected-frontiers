@@ -26,7 +26,7 @@ def _tail(path: str, n: int = 15) -> list[dict]:
         with open(path, "rb") as f:
             f.seek(0, 2)
             f.seek(max(0, f.tell() - 80_000))
-            lines = f.read().decode("utf-8", "ignore").splitlines()[-n:]
+            lines = f.read().decode("utf-8", "ignore").split("\n")[-n:]
         return [json.loads(x) for x in lines if x.startswith("{")][::-1]
     except (OSError, ValueError):
         return []
@@ -65,7 +65,7 @@ def status() -> dict:
         pass
     sup_log = []
     try:
-        sup_log = (INTERIM / "supervisor.log").read_text().splitlines()[-8:][::-1]
+        sup_log = (INTERIM / "supervisor.log").read_text().split("\n")[-8:][::-1]
     except OSError:
         pass
     sup_pid = (INTERIM / "supervisor.pid").read_text().strip() if (INTERIM / "supervisor.pid").exists() else None

@@ -36,7 +36,7 @@ def _w(path: Path, rows) -> int:
 
 
 def _r(path: Path) -> list[dict]:
-    return [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
+    return [json.loads(x) for x in path.read_text().split("\n") if x.strip()] if path.exists() else []
 
 
 def build(version: str | None = None) -> dict:

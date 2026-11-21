@@ -65,7 +65,7 @@ class Fetcher:
             self._wait(host(url))
             try:
                 r = self.http.get(url)
-            except httpx.HTTPError as e:
+            except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, ValueError) as e:   # bad host = failed fetch
                 return self._fail(url, f"error:{type(e).__name__}")
         ctype = r.headers.get("content-type", "")
         if r.status_code != 200 or "html" not in ctype:
@@ -85,7 +85,7 @@ class Fetcher:
             self._wait(host(url))
             try:
                 r = self.http.get(url)
-            except httpx.HTTPError:
+            except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, ValueError):
                 return None
         return r.text[:max_bytes] if r.status_code == 200 else None
 
@@ -95,7 +95,7 @@ class Fetcher:
             try:
                 r = self.http.get(f"{urlparse(url).scheme}://{h}/robots.txt")
                 self._robots[h] = Protego.parse(r.text) if r.status_code == 200 else None
-            except httpx.HTTPError:
+            except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, ValueError):
                 self._robots[h] = None
         rp = self._robots[h]
         return True if rp is None else rp.can_fetch(url, self.ua)
@@ -142,7 +142,9 @@ class Fetcher:
     def _load_index(self) -> dict[str, str]:
         out: dict[str, str] = {}
         if INDEX.exists():
-            for line in INDEX.read_text().splitlines():
+            for line in INDEX.read_text().split("\n"):
+                if not line.strip():
+                    continue
                 rec = json.loads(line)
                 if rec.get("sha"):
                     out[rec["url"]] = rec["sha"]

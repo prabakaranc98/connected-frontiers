@@ -68,13 +68,16 @@ def _resolve_domain(fetcher: Fetcher, name: str) -> str | None:
     """Guess an AI org's site from its name (name.ai / .com / .io); accept only if the homepage
     title contains the name. Conservative on purpose: a wrong site would pollute the graph."""
     slug = re.sub(r"[^a-z0-9]", "", name.lower())
-    if len(slug) < 4 or is_generic(name):
+    if not 4 <= len(slug) <= 30 or is_generic(name):        # DNS labels ≤ 63; real brand slugs are short
         return None
     for tld in ("ai", "com", "io"):
         d = f"{slug}.{tld}"
         if not domain_ok(d):
             continue
-        p = fetcher.fetch(f"https://{d}/")
+        try:
+            p = fetcher.fetch(f"https://{d}/")
+        except (UnicodeError, ValueError):                   # malformed host: never let it fail a batch
+            continue
         if p is not None and (name.lower() in (p.title or "").lower() or slug in re.sub(r"[^a-z0-9]", "", (p.title or "").lower())):
             return d
     return None
@@ -302,6 +305,7 @@ def crawl(seeds: list[dict], budget: int, policy: str = "ppr", batch: int = 40, 
                                     if e["type"] == "org" and not e.get("domain") and e["id"] not in fr.resolve_tried
                                     and (e.get("org_kind") in AI_KINDS or e.get("layer") in AI_LAYERS)),
                                    key=lambda e: -ppr.get(e["id"], 0.0))[:30]
+                fr.resolve_tried |= {e["id"] for e in todo_orgs}   # mark first: a failure must not retry forever
                 if todo_orgs:
                     ctx.update(phase=f"batch {len(history) + 1}: resolving sites for AI orgs", n=0, of=len(todo_orgs))
                     with ThreadPoolExecutor(max_workers=12) as pool:
