@@ -1,0 +1,16 @@
+# Evaluation settings (EVAL.md). Gold files are frozen; record the freeze date in DECISIONS.md.
+gold:
+  entities: eval/gold/entities.yaml       # owner-built, per seed
+  pages: eval/gold/pages.jsonl            # labelled triples (train/held-out split field)
+  resolution_pairs: eval/gold/pairs.jsonl
+  questions: eval/gold/questions.jsonl    # with pre/post model-cutoff flag
+
+crawl:
+  budgets: [100, 250, 500]
+  policies: [bfs, degree, pagerank, ppr_push, ppr_push_typed, ppr_push_bandit]
+  runs_per_config: 3
+
+reason:
+  systems: [R0, R1, R2, R3]
+linkpred:
+  cutoff_date: null                       # T, set when the temporal split is frozen

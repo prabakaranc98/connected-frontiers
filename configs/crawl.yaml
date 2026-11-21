@@ -1,0 +1,43 @@
+# Crawl settings (docs/DESIGN.md §3). Values are starting points, tuned only on non-frozen data.
+budget:
+  max_fetches: 500
+  max_llm_usd: 20
+  pages_per_entity: 4
+
+ppr:
+  alpha: 0.15            # teleport probability (1 - damping)
+  epsilon: 1.0e-4        # stop when max r(v)/deg(v) < epsilon
+
+# Importance passed per relation type (typed PPR). 1.0 = neutral.
+relation_weights:
+  serves: 1.0
+  works_on: 1.0
+  uses_method: 0.9
+  measured_on: 0.9
+  builds_on: 0.8
+  uses_tech: 0.7
+  hires_for: 0.6
+  publishes: 0.8
+  cites: 0.5
+  partners_with: 0.8
+  invests_in: 0.6
+  acquired: 0.9
+  compares_against: 0.3
+  offers: 0.9
+  part_of: 0.8
+  subtype_of: 0.6
+  trained_on: 0.7
+
+# Edge weight in PPR push = relation_weight × evidence strength (configs/evidence.yaml,
+# docs/EVIDENCE.md). Strength already includes the contested and stale penalties, so weak
+# marketing claims pass little importance.
+
+boundary:
+  # non-AI customer orgs: add as nodes, expand only if both hold
+  customer_min_residual: 1.0e-3
+  customer_min_ai_links: 2
+  type_caps: { org: 400, person: 0, paper: 300 }
+
+politeness:
+  respect_robots: true
+  min_seconds_between_requests_per_host: 2

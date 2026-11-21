@@ -1,0 +1,55 @@
+{
+ "version": "v1",
+ "judges": [
+  "qwen/qwen3.5-35b-a3b",
+  "thinkingmachines/inkling-2-small",
+  "nvidia/nemotron-3.5-lightning",
+  "mistralai/mistral-small-2603"
+ ],
+ "verification": {
+  "items": 200,
+  "silver_labelled": 170,
+  "disputed": 30,
+  "fleiss_kappa_judges": 0.397,
+  "silver_entailed_share": 0.835,
+  "production_verifier": {
+   "accuracy": 0.847,
+   "precision_entailed": 0.914,
+   "recall_entailed": 0.901,
+   "false_support_rate": 0.429,
+   "false_reject_rate": 0.099,
+   "confusion": {
+    "tp": 128,
+    "fp": 12,
+    "fn": 14,
+    "tn": 16
+   }
+  },
+  "judge_agreement_with_others": {
+   "qwen/qwen3.5-35b-a3b": 0.825,
+   "thinkingmachines/inkling-2-small": 0.83,
+   "nvidia/nemotron-3.5-lightning": 0.74,
+   "mistralai/mistral-small-2603": 0.77
+  }
+ },
+ "entity_resolution": {
+  "items": 120,
+  "silver_labelled": 96,
+  "disputed": 24,
+  "fleiss_kappa_judges": 0.43,
+  "production_er": {
+   "accuracy": 0.677,
+   "false_merge_rate": 0.478,
+   "confusion(prod,silver)": {
+    "different->different": 23,
+    "same->part_or_subtype": 17,
+    "part_or_subtype->part_or_subtype": 18,
+    "part_or_subtype->different": 5,
+    "same->same": 24,
+    "same->different": 5,
+    "different->part_or_subtype": 4
+   }
+  }
+ },
+ "spend_usd": 0.0884
+}

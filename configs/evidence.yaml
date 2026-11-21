@@ -1,0 +1,26 @@
+# Evidence grading (docs/EVIDENCE.md). Values are PROPOSED; calibrate on hand-graded edges.
+status_strength:
+  unsupported: 0.0
+  claimed: 0.35
+  confirmed: 0.6
+  corroborated: 0.8
+  verified: 1.0
+# CLAIMED strength by claim kind (costly-signal argument, docs/EVIDENCE.md §4)
+claimed_strength_by_kind:
+  relational: 0.5      # naming a customer/partner: they would object if false
+  descriptive: 0.5     # "we use RL": low stakes, usually true
+  event: 0.45
+  quantitative: 0.3    # "#1", "15x cheaper": cheap to claim, costly to check
+contested_factor: 0.5
+stale_after_days: 540
+stale_factor: 0.7
+
+# Source registry: decides source_kind for publishers that are neither the head nor the tail
+# entity. Fill in as sources are registered in _commons/catalog/datasets.md.
+independent_primary_domains:
+  - arxiv.org
+  - openreview.net
+  - aclanthology.org
+  - sec.gov
+  # benchmark maintainers / leaderboards: add per benchmark (TODO)
+press_domains: []      # TODO

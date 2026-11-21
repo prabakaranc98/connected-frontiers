@@ -1,0 +1,45 @@
+{
+ "verification": {
+  "items": 170,
+  "before": {
+   "accuracy": 0.847,
+   "false_support_rate": 0.429,
+   "false_reject_rate": 0.099,
+   "confusion": {
+    "tp": 128,
+    "fp": 12,
+    "fn": 14,
+    "tn": 16
+   }
+  },
+  "after_escalation": {
+   "accuracy": 0.888,
+   "false_support_rate": 0.143,
+   "false_reject_rate": 0.106,
+   "confusion": {
+    "tp": 127,
+    "fp": 4,
+    "fn": 15,
+    "tn": 24
+   }
+  },
+  "escalated": 83,
+  "overturned": 9,
+  "secondary": "google/gemma-3-27b-it",
+  "spend_usd": 0.003
+ },
+ "entity_resolution": {
+  "items": 96,
+  "before": {
+   "accuracy": 0.677,
+   "false_merge_rate": 0.478,
+   "merges": 46
+  },
+  "after_rule_fix": {
+   "accuracy": 0.854,
+   "false_merge_rate": 0.172,
+   "merges": 29
+  },
+  "spend_usd": 0.0039
+ }
+}

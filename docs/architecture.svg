@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 730" width="1200" height="730" font-family="system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Connected Frontiers architecture</title>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#52606d"/>
+    </marker>
+    <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9822b"/>
+    </marker>
+    <style>
+      .t  { font-size: 13px; font-weight: 600; fill: #1f2933; }
+      .s  { font-size: 11px; fill: #52606d; }
+      .h  { font-size: 14px; font-weight: 700; fill: #1f2933; letter-spacing: .3px; }
+      .algo  { fill: #e3edfb; stroke: #3b6fd8; stroke-width: 1.5; }
+      .model { fill: #fdecd9; stroke: #d9822b; stroke-width: 1.5; }
+      .code  { fill: #eceff3; stroke: #6b7785; stroke-width: 1.5; }
+      .data  { fill: #e2f4e8; stroke: #2f9e5b; stroke-width: 1.5; }
+      .frame { fill: #f6f8fb; stroke: #c9d3e0; stroke-width: 1.5; }
+      .ln    { stroke: #52606d; stroke-width: 1.6; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="730" fill="#ffffff"/>
+  <text x="20" y="26" class="h" font-size="17">Connected Frontiers: one system, two roles, one graph</text>
+
+  <!-- request_crawl feedback (Reasoner → Frontier) -->
+  <path d="M1070,56 V40 H287 V98" fill="none" stroke="#d9822b" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrO)"/>
+  <rect x="560" y="31" width="330" height="18" fill="#ffffff"/>
+  <text x="725" y="44" class="s" text-anchor="middle" fill="#b5651d">request_crawl(entity, why): gaps become targeted crawls</text>
+
+  <!-- ============ CONSTRUCTOR ============ -->
+  <rect x="20" y="56" width="700" height="400" rx="14" class="frame"/>
+  <text x="36" y="78" class="h">CONSTRUCTOR · training time: builds the graph</text>
+
+  <!-- row 1 -->
+  <rect x="40"  y="98" width="150" height="76" rx="9" class="data"/>
+  <text x="115" y="124" class="t" text-anchor="middle">Seeds</text>
+  <text x="115" y="142" class="s" text-anchor="middle">configs/seeds.yaml</text>
+  <text x="115" y="157" class="s" text-anchor="middle">labs · neolabs · infra</text>
+
+  <rect x="212" y="98" width="150" height="76" rx="9" class="algo"/>
+  <text x="287" y="120" class="t" text-anchor="middle">Frontier</text>
+  <text x="287" y="138" class="s" text-anchor="middle">priority = r(v)/deg(v)</text>
+  <text x="287" y="152" class="s" text-anchor="middle">× novelty × type cap</text>
+  <text x="287" y="166" class="s" text-anchor="middle">− λ·cost</text>
+
+  <rect x="384" y="98" width="150" height="76" rx="9" class="model"/>
+  <text x="459" y="124" class="t" text-anchor="middle">Source finder</text>
+  <text x="459" y="142" class="s" text-anchor="middle">entity → URLs</text>
+  <text x="459" y="157" class="s" text-anchor="middle">rules → LLM · bandit</text>
+
+  <rect x="556" y="98" width="150" height="76" rx="9" class="code"/>
+  <text x="631" y="124" class="t" text-anchor="middle">Fetch + clean</text>
+  <text x="631" y="142" class="s" text-anchor="middle">httpx · robots · cache</text>
+  <text x="631" y="157" class="s" text-anchor="middle">trafilatura</text>
+
+  <line x1="190" y1="136" x2="210" y2="136" class="ln" marker-end="url(#arr)"/>
+  <line x1="362" y1="136" x2="382" y2="136" class="ln" marker-end="url(#arr)"/>
+  <line x1="534" y1="136" x2="554" y2="136" class="ln" marker-end="url(#arr)"/>
+  <line x1="631" y1="174" x2="631" y2="216" class="ln" marker-end="url(#arr)"/>
+
+  <!-- row 2 (right → left) -->
+  <rect x="556" y="218" width="150" height="76" rx="9" class="model"/>
+  <text x="631" y="244" class="t" text-anchor="middle">Extract</text>
+  <text x="631" y="262" class="s" text-anchor="middle">text → typed triples</text>
+  <text x="631" y="277" class="s" text-anchor="middle">LLM schema vs GLiNER</text>
+
+  <rect x="384" y="218" width="150" height="76" rx="9" class="model"/>
+  <text x="459" y="244" class="t" text-anchor="middle">Resolve</text>
+  <text x="459" y="262" class="s" text-anchor="middle">mention → entity id</text>
+  <text x="459" y="277" class="s" text-anchor="middle">domain · fuzzy · LLM</text>
+
+  <rect x="212" y="218" width="150" height="76" rx="9" class="code"/>
+  <text x="287" y="244" class="t" text-anchor="middle">Graph update</text>
+  <text x="287" y="262" class="s" text-anchor="middle">corroborate edges</text>
+  <text x="287" y="277" class="s" text-anchor="middle">confidence · status</text>
+
+  <rect x="40" y="218" width="150" height="76" rx="9" class="algo"/>
+  <text x="115" y="244" class="t" text-anchor="middle">Rank</text>
+  <text x="115" y="262" class="s" text-anchor="middle">PPR push (local)</text>
+  <text x="115" y="277" class="s" text-anchor="middle">typed · conf · decay</text>
+
+  <line x1="556" y1="256" x2="536" y2="256" class="ln" marker-end="url(#arr)"/>
+  <line x1="384" y1="256" x2="364" y2="256" class="ln" marker-end="url(#arr)"/>
+  <line x1="212" y1="256" x2="192" y2="256" class="ln" marker-end="url(#arr)"/>
+  <!-- Rank → Frontier -->
+  <path d="M115,218 V198 H287 V176" class="ln" marker-end="url(#arr)"/>
+  <text x="201" y="193" class="s" text-anchor="middle">new priorities</text>
+
+  <text x="40" y="314" class="s">stop: max r(v)/deg(v) &lt; ε, or fetch budget spent · policies compared: bfs · degree · pagerank · ppr_push · typed · bandit</text>
+
+  <!-- row 3: improvement loops -->
+  <rect x="40" y="328" width="666" height="112" rx="10" fill="#ffffff" stroke="#c9d3e0" stroke-dasharray="5 4"/>
+  <text x="54" y="350" class="t">Self-improvement loops: each one scored on held-out data, never on frozen test sets</text>
+  <g>
+    <rect x="52"  y="364" width="122" height="62" rx="8" class="model"/>
+    <text x="113" y="388" class="t" text-anchor="middle" font-size="12">Extraction</text>
+    <text x="113" y="405" class="s" text-anchor="middle">prompt edits</text>
+    <text x="113" y="418" class="s" text-anchor="middle">(GEPA-style)</text>
+
+    <rect x="182" y="364" width="122" height="62" rx="8" class="algo"/>
+    <text x="243" y="388" class="t" text-anchor="middle" font-size="12">Source policy</text>
+    <text x="243" y="405" class="s" text-anchor="middle">Thompson bandit</text>
+    <text x="243" y="418" class="s" text-anchor="middle">over page types</text>
+
+    <rect x="312" y="364" width="122" height="62" rx="8" class="code"/>
+    <text x="373" y="388" class="t" text-anchor="middle" font-size="12">Alias table</text>
+    <text x="373" y="405" class="s" text-anchor="middle">adjudicated</text>
+    <text x="373" y="418" class="s" text-anchor="middle">merges</text>
+
+    <rect x="442" y="364" width="122" height="62" rx="8" class="data"/>
+    <text x="503" y="388" class="t" text-anchor="middle" font-size="12">Schema</text>
+    <text x="503" y="405" class="s" text-anchor="middle">proposed relations</text>
+    <text x="503" y="418" class="s" text-anchor="middle">owner accepts</text>
+
+    <rect x="572" y="364" width="122" height="62" rx="8" class="algo"/>
+    <text x="633" y="388" class="t" text-anchor="middle" font-size="12">Refresh</text>
+    <text x="633" y="405" class="s" text-anchor="middle">recrawl by</text>
+    <text x="633" y="418" class="s" text-anchor="middle">change rate</text>
+  </g>
+
+  <!-- ============ KG ============ -->
+  <line x1="720" y1="256" x2="756" y2="256" class="ln" marker-end="url(#arr)"/>
+  <text x="738" y="248" class="s" text-anchor="middle">vN</text>
+  <path d="M760,196 V304 A80,16 0 0 0 920,304 V196" class="data"/>
+  <ellipse cx="840" cy="196" rx="80" ry="16" class="data"/>
+  <text x="840" y="236" class="t" text-anchor="middle">Knowledge graph</text>
+  <text x="840" y="254" class="s" text-anchor="middle">entities · typed edges</text>
+  <text x="840" y="269" class="s" text-anchor="middle">url · quote · date</text>
+  <text x="840" y="284" class="s" text-anchor="middle">claimed → verified</text>
+  <text x="840" y="340" class="s" text-anchor="middle">SQLite → Parquet</text>
+  <text x="840" y="354" class="s" text-anchor="middle">versioned snapshots</text>
+
+  <!-- ============ REASONER ============ -->
+  <line x1="920" y1="256" x2="958" y2="256" class="ln" marker-end="url(#arr)"/>
+  <rect x="960" y="56" width="220" height="400" rx="14" class="frame"/>
+  <text x="974" y="78" class="h">REASONER · inference</text>
+
+  <rect x="975" y="94" width="190" height="44" rx="9" class="data"/>
+  <text x="1070" y="113" class="t" text-anchor="middle">Question</text>
+  <text x="1070" y="129" class="s" text-anchor="middle">"who solves X, how, measured?"</text>
+
+  <rect x="975" y="158" width="190" height="56" rx="9" class="algo"/>
+  <text x="1070" y="180" class="t" text-anchor="middle">Seed + PPR subgraph</text>
+  <text x="1070" y="198" class="s" text-anchor="middle">entities in question → top-k</text>
+
+  <rect x="975" y="234" width="190" height="112" rx="9" class="model"/>
+  <text x="1070" y="256" class="t" text-anchor="middle">Agent + graph tools</text>
+  <text x="1070" y="276" class="s" text-anchor="middle">find_entity · neighbors</text>
+  <text x="1070" y="292" class="s" text-anchor="middle">ppr · paths · compare</text>
+  <text x="1070" y="308" class="s" text-anchor="middle">evidence · request_crawl</text>
+  <text x="1070" y="330" class="s" text-anchor="middle">vs R0 no-graph · R1 RAG</text>
+
+  <rect x="975" y="366" width="190" height="72" rx="9" class="data"/>
+  <text x="1070" y="390" class="t" text-anchor="middle">Cited answer</text>
+  <text x="1070" y="408" class="s" text-anchor="middle">claim → edge_id → url</text>
+  <text x="1070" y="423" class="s" text-anchor="middle">"not in graph" is valid</text>
+
+  <line x1="1070" y1="138" x2="1070" y2="156" class="ln" marker-end="url(#arr)"/>
+  <line x1="1070" y1="214" x2="1070" y2="232" class="ln" marker-end="url(#arr)"/>
+  <line x1="1070" y1="346" x2="1070" y2="364" class="ln" marker-end="url(#arr)"/>
+
+  <!-- ============ OUTPUTS ============ -->
+  <line x1="840" y1="364" x2="840" y2="474" class="ln"/>
+  <line x1="200" y1="474" x2="1000" y2="474" class="ln"/>
+  <line x1="200" y1="474" x2="200" y2="494" class="ln" marker-end="url(#arr)"/>
+  <line x1="600" y1="474" x2="600" y2="494" class="ln" marker-end="url(#arr)"/>
+  <line x1="1000" y1="474" x2="1000" y2="494" class="ln" marker-end="url(#arr)"/>
+
+  <rect x="20" y="496" width="360" height="100" rx="10" class="code"/>
+  <text x="200" y="522" class="t" text-anchor="middle">cf.viz · Explorer</text>
+  <text x="200" y="542" class="s" text-anchor="middle">Cytoscape.js · nodes sized by PPR from a seed</text>
+  <text x="200" y="558" class="s" text-anchor="middle">type filters · provenance panel</text>
+  <text x="200" y="574" class="s" text-anchor="middle">crawl replay slider</text>
+
+  <rect x="420" y="496" width="360" height="100" rx="10" class="algo"/>
+  <text x="600" y="522" class="t" text-anchor="middle">cf.eval · Harness (scores every box)</text>
+  <text x="600" y="542" class="s" text-anchor="middle">frozen: gold entities · labelled pages · questions</text>
+  <text x="600" y="558" class="s" text-anchor="middle">crawl curves vs BFS · triple F1 · merge P/R</text>
+  <text x="600" y="574" class="s" text-anchor="middle">link-pred hits@k · reasoner R0–R3</text>
+
+  <rect x="820" y="496" width="360" height="100" rx="10" class="data"/>
+  <text x="1000" y="522" class="t" text-anchor="middle">Hugging Face release</text>
+  <text x="1000" y="542" class="s" text-anchor="middle">dataset: entities · edges · sources (dated)</text>
+  <text x="1000" y="558" class="s" text-anchor="middle">benchmark: 5 tasks · leaderboard baselines</text>
+  <text x="1000" y="574" class="s" text-anchor="middle">see DATASET.md</text>
+
+  <!-- shared band -->
+  <rect x="20" y="614" width="1160" height="40" rx="9" fill="#ffffff" stroke="#c9d3e0"/>
+  <text x="600" y="639" class="s" text-anchor="middle" font-size="12">Shared: cf.llm (OpenRouter, cost logged per call) · cf.graph (SQLite + networkx) · configs/ (seeds, policies, schema) · data/raw (immutable cache)</text>
+
+  <!-- legend -->
+  <g font-size="12">
+    <rect x="20"  y="676" width="16" height="16" rx="3" class="algo"/><text x="42"  y="689" class="s" font-size="12">algorithm (owns control, compared)</text>
+    <rect x="290" y="676" width="16" height="16" rx="3" class="model"/><text x="312" y="689" class="s" font-size="12">model / agent (judgment, has a non-LLM baseline)</text>
+    <rect x="620" y="676" width="16" height="16" rx="3" class="code"/><text x="642" y="689" class="s" font-size="12">plain code</text>
+    <rect x="740" y="676" width="16" height="16" rx="3" class="data"/><text x="762" y="689" class="s" font-size="12">data / artifact</text>
+    <line x1="890" y1="684" x2="930" y2="684" stroke="#d9822b" stroke-width="1.6" stroke-dasharray="6 4"/><text x="938" y="689" class="s" font-size="12">feedback from Reasoner</text>
+  </g>
+</svg>

@@ -1,0 +1,66 @@
+# Crawl seeds. PROPOSED by Claude for the scaling run (2026-11-21); OWNER TO CONFIRM.
+# Spread across categories so no single kind of page dominates what gets found.
+# Start = homepage unless start_urls given. Unreachable / robots-blocked sites are logged and skipped.
+seeds:
+  # ---- neolabs / platforms ----
+  - {name: Applied Compute, type: org, org_kind: neolab, domain: appliedcompute.com, layer: platform, status: proposed,
+     start_urls: [https://www.appliedcompute.com/training, https://www.appliedcompute.com/case-studies/harvey,
+                  https://www.appliedcompute.com/case-studies/mercor, https://www.appliedcompute.com/case-studies/cognition,
+                  https://www.appliedcompute.com/case-studies/doordash]}
+  - {name: Thinking Machines Lab, type: org, org_kind: neolab, domain: thinkingmachines.ai, layer: models, status: proposed}
+  - {name: Safe Superintelligence, type: org, org_kind: neolab, domain: ssi.inc, layer: models, status: proposed}
+  - {name: Reflection AI, type: org, org_kind: neolab, domain: reflection.ai, layer: models, status: proposed}
+  - {name: Physical Intelligence, type: org, org_kind: neolab, domain: physicalintelligence.company, layer: models, status: proposed}
+
+  # ---- frontier labs / model builders ----
+  - {name: Anthropic, type: org, org_kind: frontier_lab, domain: anthropic.com, layer: models, status: proposed}
+  - {name: OpenAI, type: org, org_kind: frontier_lab, domain: openai.com, layer: models, status: proposed}
+  - {name: Google DeepMind, type: org, org_kind: frontier_lab, domain: deepmind.google, layer: models, status: proposed}
+  - {name: Meta AI, type: org, org_kind: frontier_lab, domain: ai.meta.com, layer: models, status: proposed}
+  - {name: xAI, type: org, org_kind: frontier_lab, domain: x.ai, layer: models, status: proposed}
+  - {name: Mistral AI, type: org, org_kind: frontier_lab, domain: mistral.ai, layer: models, status: proposed}
+  - {name: Cohere, type: org, org_kind: frontier_lab, domain: cohere.com, layer: models, status: proposed}
+  - {name: DeepSeek, type: org, org_kind: frontier_lab, domain: deepseek.com, layer: models, status: proposed}
+  - {name: AI21 Labs, type: org, org_kind: frontier_lab, domain: ai21.com, layer: models, status: proposed}
+  - {name: Reka, type: org, org_kind: frontier_lab, domain: reka.ai, layer: models, status: proposed}
+
+  # ---- compute / cloud / inference infra ----
+  - {name: NVIDIA, type: org, org_kind: infra, domain: nvidia.com, layer: compute, status: proposed}
+  - {name: Cerebras, type: org, org_kind: infra, domain: cerebras.ai, layer: compute, status: proposed}
+  - {name: Groq, type: org, org_kind: infra, domain: groq.com, layer: compute, status: proposed}
+  - {name: CoreWeave, type: org, org_kind: infra, domain: coreweave.com, layer: cloud, status: proposed}
+  - {name: Lambda, type: org, org_kind: infra, domain: lambda.ai, layer: cloud, status: proposed}
+  - {name: Together AI, type: org, org_kind: infra, domain: together.ai, layer: cloud, status: proposed}
+  - {name: Modal, type: org, org_kind: infra, domain: modal.com, layer: cloud, status: proposed}
+  - {name: Fireworks AI, type: org, org_kind: infra, domain: fireworks.ai, layer: cloud, status: proposed}
+  - {name: Baseten, type: org, org_kind: infra, domain: baseten.co, layer: cloud, status: proposed}
+  - {name: Replicate, type: org, org_kind: infra, domain: replicate.com, layer: cloud, status: proposed}
+  - {name: RunPod, type: org, org_kind: infra, domain: runpod.io, layer: cloud, status: proposed}
+  - {name: vLLM, type: org, org_kind: infra, domain: vllm.ai, layer: tooling, status: proposed}
+
+  # ---- tooling / data / evals ----
+  - {name: Hugging Face, type: org, org_kind: infra, domain: huggingface.co, layer: tooling, status: proposed}
+  - {name: Scale AI, type: org, org_kind: startup, domain: scale.com, layer: tooling, status: proposed}
+  - {name: Mercor, type: org, org_kind: startup, domain: mercor.com, layer: tooling, status: proposed}
+  - {name: Surge AI, type: org, org_kind: startup, domain: surgehq.ai, layer: tooling, status: proposed}
+  - {name: Weights & Biases, type: org, org_kind: startup, domain: wandb.ai, layer: tooling, status: proposed}
+  - {name: LangChain, type: org, org_kind: startup, domain: langchain.com, layer: tooling, status: proposed}
+  - {name: Braintrust, type: org, org_kind: startup, domain: braintrust.dev, layer: tooling, status: proposed}
+  - {name: OpenRouter, type: org, org_kind: startup, domain: openrouter.ai, layer: tooling, status: proposed}
+
+  # ---- AI-native applications ----
+  - {name: Cursor, type: org, org_kind: startup, domain: cursor.com, layer: application, status: proposed}
+  - {name: Cognition, type: org, org_kind: startup, domain: cognition.ai, layer: application, status: proposed}
+  - {name: Harvey, type: org, org_kind: startup, domain: harvey.ai, layer: application, status: proposed}
+  - {name: Perplexity, type: org, org_kind: startup, domain: perplexity.ai, layer: application, status: proposed}
+  - {name: Sierra, type: org, org_kind: startup, domain: sierra.ai, layer: application, status: proposed}
+  - {name: Decagon, type: org, org_kind: startup, domain: decagon.ai, layer: application, status: proposed}
+  - {name: Glean, type: org, org_kind: startup, domain: glean.com, layer: application, status: proposed}
+
+  # ---- research institutes, evals, benchmarks ----
+  - {name: Ai2, type: org, org_kind: academic, domain: allenai.org, layer: research, status: proposed}
+  - {name: METR, type: org, org_kind: academic, domain: metr.org, layer: research, status: proposed}
+  - {name: Epoch AI, type: org, org_kind: academic, domain: epoch.ai, layer: research, status: proposed}
+  - {name: ARC Prize, type: org, org_kind: academic, domain: arcprize.org, layer: research, status: proposed}
+  - {name: LMArena, type: org, org_kind: startup, domain: lmarena.ai, layer: research, status: proposed}
+  - {name: SWE-bench, type: org, org_kind: academic, domain: swebench.com, layer: research, status: proposed}

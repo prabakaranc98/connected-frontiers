@@ -1,0 +1,18 @@
+# Structured-source adapters (no LLM). Edges are graded 'verified' when the record is primary.
+huggingface:
+  enabled: true
+  models_per_org: 12          # top by downloads
+  # seed name -> Hugging Face organisation. PROPOSED; owner to confirm.
+  orgs:
+    Mistral AI: mistralai
+    Cohere: CohereLabs
+    DeepSeek: deepseek-ai
+    Ai2: allenai
+    Meta AI: meta-llama
+    Google DeepMind: google
+    NVIDIA: nvidia
+    OpenAI: openai
+    xAI: xai-org
+    AI21 Labs: ai21labs
+    Hugging Face: HuggingFaceTB
+    Thinking Machines Lab: thinkingmachines

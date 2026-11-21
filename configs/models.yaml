@@ -1,0 +1,23 @@
+# Model roles (first = primary, the rest = ordered fallbacks on errors) and per-model parameter
+# profiles. Profiles exist because providers differ: Inkling REQUIRES reasoning (400 if disabled),
+# Nemotron IGNORES reasoning caps (spends the whole budget), DeepSeek/Qwen/Mistral accept "off".
+roles:
+  extract:         [thinkingmachines/inkling-2-mini, qwen/qwen3.5-35b-a3b]
+  verify:          [deepseek/deepseek-v4.1-flash, mistralai/mistral-small-2603]
+  verify_escalate: [google/gemma-3-27b-it, qwen/qwen3.5-35b-a3b]     # second opinion, different family from verify
+  er_judge:        [deepseek/deepseek-v4.1-flash, mistralai/mistral-small-2603]
+  reason:          [thinkingmachines/inkling-2-small, qwen/qwen3.5-35b-a3b]
+
+profiles:                     # reasoning: 0 = off, N = token cap
+  thinkingmachines/inkling-2-mini:  {reasoning: 600, reasoning_required: true}
+  thinkingmachines/inkling-2-small: {reasoning: 800, reasoning_required: true}
+  nvidia/nemotron-3.5-lightning:    {reasoning: 0}       # ignores caps → always off
+  deepseek/deepseek-v4.1-flash:     {reasoning: 0}
+  qwen/qwen3.5-35b-a3b:             {reasoning: 0}
+  mistralai/mistral-small-2603:     {reasoning: 0}
+  google/gemma-3-27b-it:            {reasoning: null}    # no reasoning parameter
+
+escalation:
+  # Items that get a second, independent check before counting as support.
+  risky_relations: [compares_against, measured_on, invests_in, acquired, serves, partners_with, builds_on]
+  min_quote_words: 5          # fragment quotes (table cells, bare names) always escalate
