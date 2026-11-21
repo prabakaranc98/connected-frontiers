@@ -57,3 +57,73 @@ def test_silver_v1_regressions_go_to_judge():
         c = by.get(frozenset((a, b)))
         assert c is not None and not c.auto, (a, b)
     assert by[frozenset(("c1", "c2"))].auto                    # legal suffix only → safe auto-merge
+
+
+def test_locale_gate_covers_region_codes():
+    from cf.crawl.noise import url_ok
+    for path in ("/ar-SA/hub/customers/x", "/pt-BR/blog/y", "/zh-Hans/docs", "/fr/"):
+        assert not url_ok("https://example.com" + path, path), path
+    for path in ("/ai/agents", "/blog/post", "/customers/acme"):
+        assert url_ok("https://example.com" + path, path), path
+
+
+def test_verify_cache_rejects_mismatched_verdicts(tmp_path, monkeypatch):
+    import json
+
+    from cf import cache
+    from cf.extract.llm import Extraction, Verdict, XTriple
+    monkeypatch.setattr(cache, "VERIFY", tmp_path)
+
+    class Page:
+        url, raw_sha256 = "https://x.ai/", "abc"
+
+    class Ve:
+        version = "test"
+        calls = 0
+
+        def verify(self, triples, page):
+            Ve.calls += 1
+            return [Verdict(i=i, entailed=True, stance="supports") for i in range(len(triples))]
+
+    t = XTriple(head="A", head_type="org", relation="serves", tail="B", tail_type="org", quote="q", claim_kind="relational")
+    two, three = Extraction([], [t, t], 0), Extraction([], [t, t, t], 0)
+    ve = Ve()
+    v, hit = cache.get_verdicts(Page, two, "k", ve)
+    assert len(v) == 2 and not hit
+    v, hit = cache.get_verdicts(Page, three, "k", ve)          # same key, different triples → re-verify
+    assert len(v) == 3 and not hit and Ve.calls == 2
+    assert json.loads(next(tmp_path.glob("*.json")).read_text())["triples_sha"]
+
+
+def test_metric_gate_keeps_numeric_names():
+    from cf.crawl.noise import is_metric
+    for n, t in [("1B events per month", "benchmark"), ("up to 99.6% cache hits", "technology"),
+                 ("30-minute outage prediction lead time", "benchmark"), ("13B parameter model", "model"),
+                 ("2026 Best in Tech Awards", "benchmark")]:
+        assert is_metric(n, t), n
+    for n, t in [("10x Genomics", "org"), ("11x", "org"), ("10 years of AlphaGo", "paper"),
+                 ("3D Gaussian Splatting", "method"), ("4o Image Generation", "technology"), ("GPT-4o", "model")]:
+        assert not is_metric(n, t), n
+
+
+def test_jsonl_readers_survive_unicode_line_separators(tmp_path):
+    """A page quote with U+2028 must not split a JSONL record (str.splitlines() does)."""
+    import json
+
+    from cf import release
+    f = tmp_path / "x.jsonl"
+    rows = [{"quote": "a\u2028b"}, {"quote": "c\x85d"}]
+    f.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    assert release._r(f) == rows
+
+
+def test_malformed_hosts_never_raise(tmp_path, monkeypatch):
+    """A DNS label > 63 chars (from a long org name) used to crash whole crawl batches."""
+    from cf.crawl import fetch as F
+    from cf.crawl.frontier import _resolve_domain
+    monkeypatch.setattr(F, "RAW", tmp_path)
+    monkeypatch.setattr(F, "INDEX", tmp_path / "index.jsonl")
+    f = F.Fetcher()
+    assert f.fetch("https://" + "a" * 70 + ".ai/") is None
+    assert f.fetch("https://foo..com/") is None
+    assert _resolve_domain(f, "The Extremely Long Organisation Name For Artificial Intelligence Research") is None

@@ -38,18 +38,26 @@ def name_segments(graph: dict, model: str | None, k: int = 15) -> dict:
         c["name"] = " · ".join(c["top"][:2])
     if not model or not comms:
         return graph
-    lines = []
-    for c in comms:
-        top = sorted(members.get(c["id"], []), key=lambda e: -(e.get("pagerank") or 0))[:k]
-        lines.append(f"cluster {c['id']} ({c['size']} members): " + "; ".join(f"{e['name']} [{e['type']}]" for e in top))
-    try:
-        out = LLM(model).parse(SYSTEM, "\n".join(lines), SegNames, "segment_names",
-                               max_tokens=1500, reasoning_max_tokens=0)
-        by = {n.id: n.name.strip() for n in out.names}
-        for c in comms:
-            if by.get(c["id"]):
-                c["name"] = by[c["id"]][:40]
-    except RuntimeError:
-        pass
+    named = [c for c in comms if c["size"] >= 5]           # tiny clusters keep the top-2 fallback name
+    failed = 0
+    for i in range(0, len(named), 25):                     # batched: one call for 120 clusters truncates
+        batch = named[i:i + 25]
+        lines = []
+        for c in batch:
+            top = sorted(members.get(c["id"], []), key=lambda e: -(e.get("pagerank") or 0))[:k]
+            lines.append(f"cluster {c['id']} ({c['size']} members): " + "; ".join(f"{e['name']} [{e['type']}]" for e in top))
+        try:
+            out = LLM(model).parse(SYSTEM, "\n".join(lines), SegNames, "segment_names",
+                                   max_tokens=2500, reasoning_max_tokens=0)
+            by = {n.id: n.name.strip() for n in out.names}
+            for c in batch:
+                if by.get(c["id"]):
+                    c["name"] = by[c["id"]][:40]
+                    c["named_by"] = model
+        except RuntimeError as e:
+            failed += len(batch)
+            print(f"segment naming failed for {len(batch)} clusters: {str(e)[:120]}")
+    graph["segment_naming"] = {"named": sum(1 for c in comms if c.get("named_by")), "failed": failed,
+                               "fallback": len(comms) - sum(1 for c in comms if c.get("named_by"))}
     _ = ents
     return graph

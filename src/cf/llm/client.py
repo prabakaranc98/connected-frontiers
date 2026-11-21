@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from datetime import UTC, datetime
 from typing import TypeVar
@@ -11,9 +12,10 @@ from typing import TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from cf import config
+from cf import config, trace
 
 LOG = config.DATA / "interim" / "llm_calls.jsonl"
+_LOG_LOCK = threading.Lock()
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -90,13 +92,17 @@ class LLM:
         })
 
     def json(self, system: str, user: str, schema: dict, name: str, max_tokens: int = 8000,
-             reasoning_max_tokens: int | None = 1500) -> dict:
+             reasoning_max_tokens: int | str | None = "auto", deadline_s: float = 150) -> dict:
         """Structured call. Reasoning models spend hidden tokens before answering. "effort: low" is
         only a hint (we saw 19k reasoning tokens with it), so reasoning gets a hard token cap. A
         truncated answer (finish_reason=length) is retried with 2x the output budget."""
         last = None
         budget_tokens = max_tokens
+        force_off = False
+        t_start = time.time()
         for attempt in range(4):
+            if time.time() - t_start > deadline_s:      # never let one page block a batch
+                raise RuntimeError(f"{name}: gave up after {deadline_s:.0f}s ({last})")
             if LLM.spent_usd >= self.budget:
                 raise BudgetExceeded(f"spent ${LLM.spent_usd:.4f} >= budget ${self.budget}")
             body = {
@@ -109,20 +115,24 @@ class LLM:
                 "provider": {"require_parameters": True},
                 "usage": {"include": True},
             }
-            rmt = reasoning_for(self.model, reasoning_max_tokens)
+            rmt = 0 if force_off else reasoning_for(self.model, reasoning_max_tokens)
             if rmt == 0:                       # explicit: no hidden reasoning at all
                 body["reasoning"] = {"enabled": False, "exclude": True}
             elif rmt:
-                body["reasoning"] = {"max_tokens": rmt, "exclude": True}
+                body["reasoning"] = {"max_tokens": rmt, "exclude": not trace.WANT_REASONING}
             try:
+                t_call = time.time()
                 r = self.http.post(f"{self.base}/chat/completions", json=body)
                 if r.status_code in (429, 500, 502, 503, 504):
                     last = f"HTTP {r.status_code}"
+                    trace.llm_call(name, self.model, body, None, time.time() - t_call, error=last)
                     time.sleep(2 ** attempt * 2)
                     continue
                 if r.status_code >= 400:
+                    trace.llm_call(name, self.model, body, None, time.time() - t_call, error=r.text[:300])
                     raise RuntimeError(f"HTTP {r.status_code} from {self.model}: {r.text[:300]}")
                 data = r.json()
+                trace.llm_call(name, self.model, body, data, time.time() - t_call)
                 if "error" in data:
                     raise RuntimeError(f"OpenRouter error: {data['error']}")
                 choice = data["choices"][0]
@@ -134,7 +144,10 @@ class LLM:
                 self._log(name, usage, cost, finish)
                 if finish == "length" or not content.strip():
                     last = f"truncated/empty (finish={finish}, max_tokens={budget_tokens})"
-                    budget_tokens = min(budget_tokens * 2, 32000)
+                    if not _profiles().get(self.model, {}).get("reasoning_required"):
+                        force_off = True                  # hidden reasoning ate the budget: turn it off
+                    else:
+                        budget_tokens = min(budget_tokens * 2, 16000)
                     continue
                 return _parse_json(content)
             except (httpx.TransportError, json.JSONDecodeError) as e:
@@ -143,32 +156,41 @@ class LLM:
         raise RuntimeError(f"LLM call failed after retries: {last}")
 
     def chat(self, messages: list[dict], tools: list[dict] | None = None, name: str = "chat",
-             max_tokens: int = 3000, reasoning_max_tokens: int | None = 800) -> tuple[dict, dict]:
-        """One chat turn (optionally with tools). Returns (assistant message, usage). Logs cost."""
+             max_tokens: int = 3000, reasoning_max_tokens: int | None = 800,
+             schema: dict | None = None, temperature: float = 0.0) -> tuple[dict, dict]:
+        """One chat turn (optionally with tools, or with a strict JSON schema for the reply).
+        Returns (assistant message, usage). Logs cost."""
         if LLM.spent_usd >= self.budget:
             raise BudgetExceeded(f"spent ${LLM.spent_usd:.4f} >= budget ${self.budget}")
-        body = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": max_tokens,
+        body = {"model": self.model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens,
                 "usage": {"include": True}}
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
             body["provider"] = {"require_parameters": True}
+        if schema:
+            body["response_format"] = {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}}
+            body["provider"] = {"require_parameters": True}
         rmt = reasoning_for(self.model, reasoning_max_tokens)
         if rmt == 0:
             body["reasoning"] = {"enabled": False, "exclude": True}
         elif rmt:
-            body["reasoning"] = {"max_tokens": rmt, "exclude": True}
+            body["reasoning"] = {"max_tokens": rmt, "exclude": not trace.WANT_REASONING}
         last = None
         for attempt in range(4):
             try:
+                t_call = time.time()
                 r = self.http.post(f"{self.base}/chat/completions", json=body)
                 if r.status_code in (429, 500, 502, 503, 504):
                     last = f"HTTP {r.status_code}"
+                    trace.llm_call(name, self.model, body, None, time.time() - t_call, error=last)
                     time.sleep(2 ** attempt * 2)
                     continue
                 if r.status_code >= 400:
+                    trace.llm_call(name, self.model, body, None, time.time() - t_call, error=r.text[:300])
                     raise RuntimeError(f"HTTP {r.status_code} from {self.model}: {r.text[:300]}")
                 data = r.json()
+                trace.llm_call(name, self.model, body, data, time.time() - t_call)
                 if "error" in data:
                     raise RuntimeError(f"OpenRouter error: {data['error']}")
                 usage = data.get("usage", {})
@@ -222,7 +244,7 @@ class LLM:
     def _log(self, name: str, usage: dict, cost: float, finish: str | None = None) -> None:
         LOG.parent.mkdir(parents=True, exist_ok=True)
         details = usage.get("completion_tokens_details") or {}
-        with LOG.open("a") as f:
+        with _LOG_LOCK, LOG.open("a") as f:
             f.write(json.dumps({
                 "ts": datetime.now(UTC).isoformat(), "model": self.model, "call": name,
                 "prompt_tokens": usage.get("prompt_tokens"),

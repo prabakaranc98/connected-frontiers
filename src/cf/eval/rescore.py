@@ -25,7 +25,7 @@ def _vmetrics(rows: list[tuple[bool, str]]) -> dict:
 
 
 def verification(version: str = "v1") -> dict:
-    items = [json.loads(line) for line in (GOLD / f"silver_verify_{version}.jsonl").read_text().splitlines()]
+    items = [json.loads(line) for line in (GOLD / f"silver_verify_{version}.jsonl").read_text().split("\n") if line.strip()]
     items = [it for it in items if it.get("silver")]
     esc_cfg = config.load_yaml("models.yaml").get("escalation", {})
     primary = Verifier(role_chain("verify")[0], AUTO)
@@ -50,7 +50,7 @@ def verification(version: str = "v1") -> dict:
 
 
 def entity_resolution(version: str = "v1") -> dict:
-    items = [json.loads(line) for line in (GOLD / f"silver_er_{version}.jsonl").read_text().splitlines()]
+    items = [json.loads(line) for line in (GOLD / f"silver_er_{version}.jsonl").read_text().split("\n") if line.strip()]
     items = [d for d in items if d.get("silver")]
     judge = role_chain("er_judge")[0]
     spend0 = LLM.spent_usd

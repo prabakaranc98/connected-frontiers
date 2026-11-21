@@ -1,0 +1,66 @@
+{
+ "version": "v20261121-1707",
+ "parent": null,
+ "created_at": "2026-11-21T17:07:11+00:00",
+ "git_commit": "690ab08-dirty",
+ "note": "v0 baseline: 48-seed scout + HF adapter, before the frontier crawl",
+ "counts": {
+  "entities": 3433,
+  "edges": 3742,
+  "verified_edges": 225,
+  "segments": 43,
+  "hierarchy_links": 453,
+  "pages": 245,
+  "docs_edge_chunks": 3818,
+  "docs_chunks": 1565,
+  "docs_entity_chunks": 3210,
+  "docs_documents": 242
+ },
+ "models": {
+  "extract": [
+   "thinkingmachines/inkling-2-mini",
+   "qwen/qwen3.5-35b-a3b"
+  ],
+  "verify": [
+   "deepseek/deepseek-v4.1-flash",
+   "mistralai/mistral-small-2603"
+  ],
+  "verify_escalate": [
+   "google/gemma-3-27b-it",
+   "qwen/qwen3.5-35b-a3b"
+  ],
+  "er_judge": [
+   "deepseek/deepseek-v4.1-flash",
+   "mistralai/mistral-small-2603"
+  ],
+  "reason": [
+   "thinkingmachines/inkling-2-small",
+   "qwen/qwen3.5-35b-a3b"
+  ]
+ },
+ "prompts": {
+  "extract": "87942facf5a1",
+  "verify": "9e120d7941eb"
+ },
+ "seeds_sha": "7b405699a0c8",
+ "crawl": {
+  "noise": {
+   "resolved_sites": 33,
+   "near_duplicate": 9,
+   "thin": 4,
+   "fetch_failed": 1
+  },
+  "errors": 0,
+  "batches": 18
+ },
+ "build": {
+  "load_pages_s": 5.4,
+  "extract_verify_s": 0.0,
+  "adapters_rows": 238,
+  "adapters_new_edges": 230,
+  "graph_s": 0.1,
+  "er_s": 116.2,
+  "rank_layout_export_s": 45.7,
+  "total_s": 167.5
+ }
+}

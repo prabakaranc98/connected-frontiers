@@ -20,7 +20,7 @@ from cf.graph.build import GraphBuilder
 from cf.llm.client import LLM
 from cf.rank.scores import scores, to_graph
 from cf.resolve.er import resolve
-from cf.scout import CACHE, _extract_verify_cached
+from cf.scout import _extract_verify_cached
 from cf.viz.explorer import write_explorer
 
 OUT = config.DATA / "processed" / "graph"
@@ -28,11 +28,8 @@ console = Console()
 
 
 def known_urls() -> list[str]:
-    """Every page that has ever been extracted (any version)."""
-    urls = []
-    for f in sorted(CACHE.glob("*.json")):
-        urls.append(json.loads(f.read_text())["url"])
-    return list(dict.fromkeys(urls))
+    from cf.cache import known_urls as _k
+    return _k()
 
 
 def stats(gb: GraphBuilder) -> dict:
@@ -50,6 +47,9 @@ def build(seeds: list[dict], er_model: str | None, workers: int = 6) -> dict:
     fetcher = Fetcher()
     ex = LLMExtractor(config.env("CF_MODEL_EXTRACT"))
     ve = make_verifier()
+    from cf.cache import migrate_legacy
+    migrated = migrate_legacy(ex)
+    timings["legacy_migrated"] = migrated
     urls = known_urls()
     pages = [p for p in (fetcher.fetch(u) for u in urls) if p is not None and len(p.text) >= 200]
     timings["load_pages_s"] = round(time.time() - t0, 1)

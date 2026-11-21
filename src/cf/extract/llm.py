@@ -152,7 +152,7 @@ class Extraction:
 
 
 class LLMExtractor:
-    def __init__(self, model: str, max_chars: int = 24000):
+    def __init__(self, model: str, max_chars: int = 14000):
         self.llm = LLM(model)
         self.version = f"llm-v0:{model}"
         self.max_chars = max_chars

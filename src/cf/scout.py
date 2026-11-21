@@ -7,7 +7,6 @@ hop 1 to their own sites. This is the recursion, and it lets counterparty eviden
 
 from __future__ import annotations
 
-import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -18,14 +17,7 @@ from cf import config
 from cf.crawl.fetch import Fetcher, registrable
 from cf.crawl.sources import homepage, same_site_candidates
 from cf.extract.llm import (
-    EXTRACT_SYSTEM,
-    VERIFY_SYSTEM,
-    Extraction,
     LLMExtractor,
-    Verdict,
-    Verifier,
-    XEntity,
-    XTriple,
     make_verifier,
 )
 from cf.graph.build import GraphBuilder
@@ -40,28 +32,10 @@ console = Console()
 CACHE = config.DATA / "interim" / "extractions"
 
 
-def _extract_verify_cached(page, ex: LLMExtractor, ve: Verifier):
-    """Idempotent stage: key = page content hash + models + prompts. A re-run or crash never pays
-    twice for the same page; changing a model or prompt invalidates the cache automatically."""
-    key_src = f"{page.raw_sha256}|{ex.version}|{ve.version}|{EXTRACT_SYSTEM}|{VERIFY_SYSTEM}"
-    key = hashlib.sha256(key_src.encode()).hexdigest()[:24]
-    path = CACHE / f"{key}.json"
-    if path.exists():
-        d = json.loads(path.read_text())
-        ext = Extraction([XEntity(**e) for e in d["entities"]], [XTriple(**t) for t in d["triples"]],
-                         d["dropped_unquoted"])
-        return ext, [Verdict(**v) if v else None for v in d["verdicts"]]
-    ext = ex.extract(page)
-    verdicts = ve.verify(ext.triples, page)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({
-        "url": page.url, "sha": page.raw_sha256, "extractor": ex.version, "verifier": ve.version,
-        "entities": [e.model_dump() for e in ext.entities],
-        "triples": [t.model_dump() for t in ext.triples],
-        "dropped_unquoted": ext.dropped_unquoted,
-        "verdicts": [v.model_dump() if v else None for v in verdicts],
-    }, indent=1))
-    return ext, verdicts
+def _extract_verify_cached(page, ex: LLMExtractor, ve):
+    """Idempotent stage via the split caches (cf.cache): extract and verify are cached separately."""
+    from cf.cache import extract_verify
+    return extract_verify(page, ex, ve)
 
 
 @dataclass

@@ -4,45 +4,103 @@ Last updated: 2026-11-21 · Status: draft for review
 
 **Contents**
 
-0. [Overview: one system, two roles](#0-overview-one-system-two-roles)
+0. [Overview: one system, three roles](#0-overview-one-system-three-roles)
 1. [Data model and ecosystem layers](#1-data-model-and-ecosystem-layers)
 2. [Components](#2-components)
 3. [The crawl algorithm, and estimating coverage](#3-the-crawl-algorithm-and-estimating-coverage)
 4. [How the Constructor improves over time](#4-how-the-constructor-improves-over-time)
-5. [Reasoner](#5-reasoner)
+5. [Reasoner and Examiner](#5-reasoner-and-examiner)
 6. [Understanding layer: helping people make sense of it](#6-understanding-layer-helping-people-make-sense-of-it)
 7. [Build order](#7-build-order)
 8. [Repo layout](#8-repo-layout)
 
 ---
 
-## 0. Overview: one system, two roles
+## 0. Overview: one system, three roles
 
 ![Architecture](architecture.svg)
+
+*Regenerate the figure with `python scripts/make_architecture_svg.py docs/architecture.svg`.*
 
 ```mermaid
 flowchart LR
     S([Seeds]) --> F
 
-    subgraph C["CONSTRUCTOR · training time"]
+    subgraph C["CONSTRUCTOR · curation"]
         direction LR
-        F["Frontier<br/>PPR priority"] --> SF["Source finder"] --> FE["Fetch + clean"]
-        FE --> EX["Extract"] --> RS["Resolve"] --> GU["Graph update"] --> RK["Rank<br/>PPR push"]
+        F["Frontier<br/>PPR priority"] --> FE["Fetch + noise gates"] --> EX["Extract"] --> VE["Verify"]
+        VE --> GR["Grade"] --> ER["Resolve"] --> RK["Rank<br/>PPR"]
         RK -- "new priorities" --> F
     end
 
-    GU --> KG[("Knowledge graph<br/>typed edges + provenance")]
+    ER --> KB[("KB vN<br/>graph + GraphRAG index<br/>versioned")]
 
-    subgraph R["REASONER · inference time"]
+    subgraph X["EXAMINER · task builder"]
         direction TB
-        Q["Question"] --> SP["Seed + PPR subgraph"] --> AG["Agent + graph tools"] --> A["Cited answer"]
+        GE["Generate keys<br/>graph algorithms"] --> WR["Write turns<br/>LLM"] --> CK["Check<br/>deterministic"] --> SG["Solver gate"]
     end
 
-    KG --> SP
-    AG -. "request_crawl" .-> F
-    KG --> U["Understanding views<br/>maps · cards · tours · diffs"]
-    KG --> HF["Hugging Face<br/>dataset + benchmark"]
+    subgraph R["REASONER · inference"]
+        direction TB
+        Q["Question / turn"] --> M["Retrieval mode<br/>closed · graph_rag · kg_tools ·<br/>graph_query · oracle"] --> A["Cited answer"]
+    end
+
+    KB --> GE
+    KB --> M
+    SG -- "sessions" --> Q
+    A -- "trajectories → per-turn scores" --> X
+    A -. "request_crawl (planned)" .-> F
+    KB --> U["Explorer<br/>Map › Segment › Entity"]
+    KB & SG & A --> HF["Hugging Face<br/>kg · bench · runs · labels"]
 ```
+
+### Layered architecture (as built, 2026-11-21)
+
+```mermaid
+flowchart TB
+    subgraph L1["1 · ACQUIRE"]
+        SE[Seed registry<br/>48 orgs · all categories] --> FR[Frontier crawler<br/>PPR priority · co-citation ·<br/>site resolution · caps]
+        FR --> NG[Noise gates<br/>URL · domain · thin ·<br/>near-dup · media · metric nodes]
+        NG --> FC[(Fetch cache<br/>raw HTML by sha)]
+        AD[Structured adapters<br/>HF Hub lineage] --> KGS
+    end
+    subgraph L2["2 · EXTRACT & VERIFY"]
+        FC --> EX[Typed extraction<br/>Pydantic · verbatim quotes]
+        EX --> VE[Verifier + escalation<br/>second family on risky claims]
+        EX -.- C1[(extract cache)]
+        VE -.- C2[(verify cache)]
+        MP[Model profiles · fallback chains<br/>configs/models.yaml] -.-> EX & VE
+    end
+    subgraph L3["3 · CURATE"]
+        VE --> GR[Evidence grading<br/>claimed→verified · strength]
+        GR --> ER[Entity resolution<br/>strict key · 3-way judge ·<br/>hierarchy links]
+        ER --> KGS
+    end
+    subgraph L4["4 · REPRESENT (versioned KB)"]
+        KGS[(KG snapshot<br/>data/kb/&lt;version&gt;)] --> RK[PageRank · PPR ·<br/>segments + names]
+        KGS --> DI[GraphRAG index<br/>documents → passages ·<br/>edge↔passage · entity↔passage]
+    end
+    subgraph L5["5 · USE"]
+        RK & DI --> EXP[Explorer<br/>Map › Segment › Entity ·<br/>relation lens · paths]
+        RK & DI --> LK[cf lookup<br/>KG or live fetch]
+        RK & DI --> AG[Reasoner<br/>closed · graph_rag · kg_tools ·<br/>graph_query planned · oracle]
+        AG --> UC[Use cases<br/>opportunity discovery ·<br/>education · analysis]
+    end
+    subgraph L6["6 · EVALUATE & OBSERVE"]
+        SV[Silver labels<br/>4-judge ensemble] --> RS[Rescore components]
+        TK[Examiner<br/>keys by graph algorithms ·<br/>LLM writes · checks · solver gate] --> BN[Benchmark<br/>single-turn tasks +<br/>multi-turn sessions]
+        TR[(Traces<br/>LLM · pages · agent steps)] --> MON[Live monitor · reports]
+    end
+    subgraph L7["7 · RELEASE"]
+        HF[HF collection<br/>kg · bench tasks + sessions ·<br/>runs trajectories · labels]
+    end
+    AG --> BN
+    KGS --> TK & SV
+    BN & SV & KGS --> HF
+```
+
+Each layer has its own cache or checkpoint, so any failure resumes from the last good state:
+fetch cache → extract cache → verify cache → crawl checkpoint → KB version.
 
 ### The pipeline, stage by stage
 
@@ -64,10 +122,15 @@ flowchart LR
 | index / retrieve | right evidence not retrieved | evidence recall@k for gold questions |
 | evaluate | agent reasons badly over good evidence | answer accuracy; citation faithfulness; wording matches status |
 
-| Role | Analogy | Job | Output |
-|---|---|---|---|
-| **Constructor** | training | discover, read, connect, rank | versioned KG snapshot |
-| **Reasoner** | inference | answer and explain using the KG, citing evidence | cited answers, and crawl requests for gaps |
+| Role | Job | Output |
+|---|---|---|
+| **Constructor** (curation) | discover, read, verify, connect, rank | a versioned KB: graph + GraphRAG index |
+| **Examiner** (task builder) | build tasks from a KB release; keys by graph algorithms; test them (checks + solver gate) | gated multi-turn sessions pinned to the KB version |
+| **Reasoner** (inference) | answer and explain from the KB, citing evidence, in one retrieval mode | cited answers, trajectories, and (planned) crawl requests for gaps |
+
+The Examiner and the Reasoner are deliberately different: the Examiner knows the answer (it computed
+it on the graph); the Reasoner has to find it. Their gap, per retrieval mode and per turn type, is the
+release's scorecard: what a user of this KB can see proven.
 
 **Rule for agents vs algorithms.** Algorithms own *control*: what to crawl, when to stop, how to
 rank. Those are what we compare. Models own *judgment*: finding sources, extracting, deciding
@@ -317,33 +380,76 @@ Each loop must show a learning curve on **held-out** data. Nothing tunes on froz
 
 ---
 
-## 5. Reasoner
+## 5. Reasoner and Examiner
 
-**Graph tools:** `find_entity(name)` · `neighbors(id, rel?, type?)` · `ppr(seeds, k)` ·
-`paths(a, b, max_len)` · `evidence(edge_id)` · `compare(ids, facet)` · `request_crawl(entity, why)`.
+### 5.1 Reasoner: retrieval modes
 
 **Answer contract:** every claim cites an `edge_id`, which resolves to a URL and quote. **The
 wording must match the edge's status**: "X claims …" for CLAIMED, "both parties say …" for
 CONFIRMED, plain statements only for VERIFIED ([EVIDENCE.md §5](EVIDENCE.md#5-how-the-reasoner-must-speak-language-contract)).
-"Not in the graph" is a valid answer and triggers `request_crawl`.
+"Not in the graph" is a valid answer.
 
-| System | What it sees |
-|---|---|
-| R0 | nothing: the model alone |
-| R1 | vector RAG over raw cached pages |
-| R2 | PPR subgraph around the question's entities (HippoRAG-style) |
-| R3 | agent that calls graph tools |
+Who does the retrieval is the variable; the model stays the same.
 
-All four use the same model.
+| Mode | Who retrieves | How | Expected strength |
+|---|---|---|---|
+| `closed_book` | nobody | the model's own memory | baseline |
+| `graph_rag` | fixed code, once | question n-grams → seed entities → personalized PageRank over the KG → chunks scored by 0.6 · PPR mass of the entities they mention + 0.4 · BM25 → top passages + the edges whose quotes sit in them | cheap; "what is around X" |
+| `kg_tools` | the model, step by step | `find_entity` → `neighbors(id, relation)` → `evidence(edge_id)` / `passage(chunk_id)`; `segment`, `ppr`, `paths`, `search_text` | multi-hop and relation-aware, but many steps |
+| `graph_query` *(planned)* | the model, in one call | writes a typed path pattern (start, relation path with directions, status filter); executed deterministically; returns the subgraph and its passages | multi-hop in about one call |
+| `oracle` | given | the gold subgraph (and computed facts) pasted in | upper bound for retrieval |
 
-**Question families:** lookup · multi-hop · comparison · gap-finding · temporal prediction (graph
-frozen at T).
+**Why `graph_rag` is graph-aware.** The PPR step spreads relevance along edges, so a passage can rank
+high without sharing a word with the question when it mentions entities close to the seeds. That
+needs the KB-time joins: edge → chunk (the evidence quote's offset; 96.5% linked) and entity → chunks
+(mentions). Its limit: PPR ignores relation types, and it makes one retrieval decision. "Which orgs
+*use* X" and "which orgs *offer* X" pull the same neighbourhood, and "those orgs → their methods →
+benchmarks" is not followed. `kg_tools` and `graph_query` exist for that.
 
----
+Prior art these follow (unverified until read): HippoRAG (PPR over a KG), Microsoft GraphRAG
+(community summaries), Think-on-Graph (LLM-steered graph search), Text2Cypher (model-written queries).
+
+### 5.2 Examiner: building tested tasks from a release
+
+```mermaid
+flowchart LR
+    KB[(KB vN)] --> G["Generate<br/>graph algorithm picks an anchor,<br/>computes each turn's key"]
+    G --> W["Write<br/>LLM turns intents into<br/>natural follow-ups"]
+    W --> C{"Check<br/>ids exist · no leak ·<br/>non-empty keys"}
+    C -- fail --> RJ[rejected + reason]
+    C --> S{"Solver gate<br/>different-family model,<br/>oracle context ≥ 0.6"}
+    S -- fail --> RJ
+    S --> OK[(sessions_vN.jsonl)]
+```
+
+| Template | Turns (each with a computed key) | Use case |
+|---|---|---|
+| opportunity | who works on problem P → their methods/tech → their benchmarks (or none) → which of those no other org in the KB uses | opportunity discovery |
+| landscape | top orgs of a segment → which use/offer method M → evidence status of each claim → recommend one | analysis, trust |
+| learn | what M is a kind of / its variants → who uses it → which models use it | education |
+| lineage | base model → derivation → who offers the base → siblings on the same base (HF-verified) | education, provenance |
+
+Keys are never written by an LLM. The writer (Inkling-2-mini) only phrases questions; the gate solver
+(Nemotron-3.5-lightning) is from a different family. "Under-explored" means *in this KB*, not in the
+world. Scoring per turn: set F1 for lists, exact status ladder for evidence labels, letters-match for
+derivation, correct abstention for empty keys. Session pass = every turn ≥ 0.5.
+
+**Per-release scorecard ("what this KB can prove"):** lift over closed-book · status-wording accuracy ·
+multi-hop accuracy per turn · best retrieval mode per turn type · abstention when the KB has no answer.
 
 ## 6. Understanding layer: helping people make sense of it
 
 The graph is only useful if people can *read* it. Each view answers one orientation question.
+
+**Explorer: overview first, details on demand** (Map › Segment › Entity, with breadcrumbs, URL
+hash routing and browser back; Esc goes up one level).
+
+| Level | Shows | Why |
+|---|---|---|
+| Map | one bubble per segment (≥ 8 members, top 30), links aggregated across segments and labelled by their most common relation; own layout with overlap removal | 9k nodes at once is a hairball |
+| Segment | that segment's top 40 members by PageRank; a card with main players, problems, methods, models, benchmarks, connected segments | the education overview |
+| Entity | relation lens (sectors by relation, top 12 per sector, "+N more"); a card with connections grouped by relation, status chips, evidence, and the source pages | details and provenance |
+| All entities | the full force layout or layer swimlanes; path finder | for power users |
 
 | View | Orientation question | Built from |
 |---|---|---|

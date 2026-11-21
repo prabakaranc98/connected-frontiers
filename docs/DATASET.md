@@ -126,3 +126,29 @@ flowchart LR
       (English-language, US-heavy, self-reported claims), intended uses
 - [ ] Baseline scores in the card match `cf eval` output
 - [ ] `cf release --no-dry-run` pushes to `HF_DATASET_REPO`
+
+## 7. HF collection v1 schema (implemented: `cf release`)
+
+One dataset repo per KB version, configs as below. Built locally in `data/release/<kb_version>/`;
+the push is explicit and private (`cf release --push --repo <user>/<name>`).
+
+| Config | One row = | Key fields |
+|---|---|---|
+| `kb_entities` | entity | id · type · name · aliases · org_kind · layer · domain · segment · ppr · pagerank |
+| `kb_edges` | typed edge | edge_id · head · relation · tail · claim_kind · **status** · strength · contested · stale · attrs (e.g. derivation) · grade_reasons · n_publishers |
+| `kb_evidence` | citation | edge_id · url · publisher · source_kind · stance · entailed · quote (≤400) · observed_at · extractor · verifier · **chunk_id** |
+| `kb_documents` | source page | doc_id · url · title · publisher · chars (**no text**) |
+| `kb_chunk_index` | passage | chunk_id · doc_id · url · start · end · entities (**no text**; rebuild with `cf docs`) |
+| `kb_segments` / hierarchy | segment / link | id · name · size · top members / child · parent · kind |
+| `tasks` | task | task_id · use_case · **turns** [{role, content}] (multi-turn ready) · answer_key · oracle_edge_ids · kb_version · canary |
+| `trajectories` | one agent run | run_id · kb_version · task_id · model · condition · **steps** [{step, tool, args, thought, **touched** {entities, edges, chunks}}] · final_answer · items · scores · cost · latency |
+| `labels` | labelled item | label_set · kind (verification / entity_resolution) · claim or pair · votes {model: label} · silver · pipeline |
+
+**Why trajectories matter:** `touched` records what the agent *looked at* at each step, so you
+can analyse **how it traversed** the graph, not only whether it answered: path length, revisits,
+whether it read the gold evidence, and where it went wrong. Comparing models on identical tasks,
+tools and KB version gives a reproducible agent benchmark.
+
+**Multi-turn (next):** sessions where each turn filters, pivots or deepens the previous answer
+(BENCHMARK.md §3); stored as `turns` in `tasks`, with one trajectory per turn sharing a
+`session_id`.

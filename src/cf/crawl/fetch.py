@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
+from collections import defaultdict
 from datetime import UTC, datetime
 from urllib.parse import urldefrag, urljoin, urlparse
 
@@ -43,6 +45,8 @@ class Fetcher:
         self._last: dict[str, float] = {}
         self._cache = self._load_index()
         self._failed: dict[str, str] = {}     # url -> reason, remembered for this run
+        self._host_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)   # polite per host
+        self._glock = threading.Lock()                                               # shared state + log
         RAW.mkdir(parents=True, exist_ok=True)
 
     # ---- public -------------------------------------------------------------------------
@@ -55,21 +59,35 @@ class Fetcher:
                 return self._page(url, path.read_bytes(), sha)
         if url in self._failed:               # don't re-hit a 403 / robots block in the same run
             return None
-        if not self.allowed(url):
-            return self._fail(url, "robots_disallow")
-        self._wait(host(url))
-        try:
-            r = self.http.get(url)
-        except httpx.HTTPError as e:
-            return self._fail(url, f"error:{type(e).__name__}")
+        with self._host_locks[host(url)]:          # one request at a time per host; hosts run in parallel
+            if not self.allowed(url):
+                return self._fail(url, "robots_disallow")
+            self._wait(host(url))
+            try:
+                r = self.http.get(url)
+            except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, ValueError) as e:   # bad host = failed fetch
+                return self._fail(url, f"error:{type(e).__name__}")
         ctype = r.headers.get("content-type", "")
         if r.status_code != 200 or "html" not in ctype:
             return self._fail(url, f"http_{r.status_code}:{ctype[:30]}")
         sha = hashlib.sha256(r.content).hexdigest()
         (RAW / f"{sha}.html").write_bytes(r.content)
-        self._cache[url] = sha
+        with self._glock:
+            self._cache[url] = sha
         self._log(url, sha, "ok", final_url=str(r.url))
         return self._page(url, r.content, sha)
+
+    def get_text(self, url: str, max_bytes: int = 2_000_000) -> str | None:
+        """Polite, robots-checked GET for non-HTML resources (sitemaps). Not cached."""
+        with self._host_locks[host(url)]:
+            if not self.allowed(url):
+                return None
+            self._wait(host(url))
+            try:
+                r = self.http.get(url)
+            except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, ValueError):
+                return None
+        return r.text[:max_bytes] if r.status_code == 200 else None
 
     def allowed(self, url: str) -> bool:
         h = host(url)
@@ -77,14 +95,15 @@ class Fetcher:
             try:
                 r = self.http.get(f"{urlparse(url).scheme}://{h}/robots.txt")
                 self._robots[h] = Protego.parse(r.text) if r.status_code == 200 else None
-            except httpx.HTTPError:
+            except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, ValueError):
                 self._robots[h] = None
         rp = self._robots[h]
         return True if rp is None else rp.can_fetch(url, self.ua)
 
     # ---- internals ----------------------------------------------------------------------
     def _fail(self, url: str, reason: str) -> None:
-        self._failed[url] = reason
+        with self._glock:
+            self._failed[url] = reason
         self._log(url, None, reason)
 
     def _wait(self, h: str) -> None:
@@ -123,7 +142,9 @@ class Fetcher:
     def _load_index(self) -> dict[str, str]:
         out: dict[str, str] = {}
         if INDEX.exists():
-            for line in INDEX.read_text().splitlines():
+            for line in INDEX.read_text().split("\n"):
+                if not line.strip():
+                    continue
                 rec = json.loads(line)
                 if rec.get("sha"):
                     out[rec["url"]] = rec["sha"]
@@ -131,6 +152,6 @@ class Fetcher:
 
     def _log(self, url: str, sha: str | None, status: str, **extra) -> None:
         RAW.mkdir(parents=True, exist_ok=True)
-        with INDEX.open("a") as f:
+        with self._glock, INDEX.open("a") as f:
             f.write(json.dumps({"url": url, "sha": sha, "status": status,
                                 "fetched_at": datetime.now(UTC).isoformat(), **extra}) + "\n")

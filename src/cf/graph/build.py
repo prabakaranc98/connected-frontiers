@@ -5,10 +5,12 @@ The scout keeps everything in memory and dumps JSON. SQLite comes at M1.
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import UTC, datetime
 
 from cf import config
 from cf.crawl.fetch import registrable
+from cf.crawl.noise import is_generic, is_metric
 from cf.extract.llm import NONE, Extraction, Verdict, XEntity
 from cf.graph import grading
 from cf.graph.schema import Edge, Evidence, SourceKind, Stance
@@ -24,6 +26,7 @@ class GraphBuilder:
         self.entities: dict[str, dict] = {}
         self.edges: dict[tuple[str, str, str], Edge] = {}
         self.seeds: list[str] = []
+        self.noise: Counter = Counter()        # generic entities / triples dropped
 
     # ---- entities -----------------------------------------------------------------------
     def register_seed(self, name: str, domain: str, org_kind: str, layer: str | None = None) -> str:
@@ -55,12 +58,24 @@ class GraphBuilder:
         now = datetime.now(UTC)
 
         for ent in ext.entities:
+            if is_generic(ent.name):
+                self.noise["generic_entity"] += 1
+                continue
+            if is_metric(ent.name, ent.type):
+                self.noise["metric_entity"] += 1
+                continue
             dom = registrable(ent.domain) if ent.domain else ""
             dom = dom if dom in link_domains else self._domain_from_links(ent, link_domains)
             self._entity(ent.name, ent.type, ent.org_kind, ent.layer, dom or None)
 
         added = 0
         for t, v in zip(ext.triples, verdicts, strict=True):
+            if is_generic(t.head) or is_generic(t.tail):
+                self.noise["generic_triple"] += 1
+                continue
+            if is_metric(t.head, t.head_type) or is_metric(t.tail, t.tail_type):
+                self.noise["metric_triple"] += 1          # backlog: keep as an edge attribute instead
+                continue
             hid = self._entity(t.head, t.head_type)
             tid = self._entity(t.tail, t.tail_type)
             if hid == tid:
