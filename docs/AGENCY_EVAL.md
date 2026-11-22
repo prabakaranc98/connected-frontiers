@@ -1,6 +1,6 @@
 # Agency eval: does grounding in Connected Frontiers give people better guidance?
 
-Status: design, 2026-11-21 · Owner decisions marked **[owner]**
+Status: pilot run, 2026-11-22 (results in §13) · Owner decisions marked **[owner]**
 
 ## 1. The question
 
@@ -53,16 +53,37 @@ allows) are tested; **GLM and Nemotron** judge. No judge evaluates its own famil
 ## 4. Personas
 
 Each persona is a profile, used three times: to write the task in that voice, to condition the persona judge, and
-to check fit.
+to check fit. The catalogue is [`configs/personas.yaml`](../configs/personas.yaml) (8 personas); experiments pick
+personas by key.
 
-| Persona | Background | Typical constraint | Success looks like |
+| Key | Persona | Anchor | Constraint | Success looks like |
+|---|---|---|---|---|
+| `undergrad_capstone` | Final-year CS undergrad, PyTorch basics | method | 10-12 weeks, a laptop, one rented GPU | a working project with a clear evaluation; something for interviews |
+| `masters_thesis` | ML master's student, comfortable with Hugging Face | method | 6 months, a few A100s, a thesis | a research question, a baseline, controlled experiments, maybe a workshop paper |
+| `phd_first_year` | strong maths and ML, looking for a 3-4 year direction | method | a year to a first paper, modest compute | who works on what, the open problems, a first project that leads somewhere |
+| `career_switcher` | backend engineer moving into ML | method | evenings for 3 months, ~$100 compute | portfolio projects with real tools and production sense |
+| `junior_ml_engineer` | one year in an ML team | technology | a quarter, team infrastructure | a scoped project with measurable impact the team can maintain |
+| `senior_research_engineer` | trains models at scale, reads papers weekly | method | a quarter, a small cluster, reproducible | a sharp hypothesis, current baselines, controlled experiments |
+| `applied_ml_startup` | generalist shipping LLM features | technology | weeks, production, small budget | a stack choice with trade-offs and go/no-go metrics |
+| `forward_deployed` | customer-facing, broad stack | org | two weeks before the first customer meeting | the customer's stack and practices, a prototype plan, first metrics |
+
+### Use cases the personas cover
+
+| Use case | What the person needs | Personas | What the graph can add (the hypothesis) |
 |---|---|---|---|
-| Student (capstone) | CS undergrad or master's, knows PyTorch basics | 8-12 weeks, a laptop, one rented GPU | a feasible, current project that shows real skills and leads to a job or a paper |
-| Research engineer | ships training code, reads papers | a quarter, a small cluster | a credible research direction with controlled experiments and baselines |
-| Applied ML engineer | builds products, some fine-tuning | weeks, production constraints | a stack and a plan that would survive a real deployment |
-| Forward-deployed engineer | customer-facing, broad stack | two weeks before a customer | knows the customer's stack and practices, and what to measure on day one |
+| **Learn** a method | an ordered path from basics to current practice | undergrad, career switcher | which tools and data current teams actually use |
+| **Research** a direction | open problems, who works on them, a first project | master's, PhD, senior RE | who does what, where the gaps are, current baselines |
+| **Build** a portfolio / own an area | a project that proves the skill | career switcher, junior MLE | the stacks employers hire for (`hires_for`, `uses_tech`) |
+| **Adopt** a technology | vendors, trade-offs, go/no-go metrics | applied ML (startup) | who offers it, who uses it, alternatives |
+| **Deploy** at a customer | the customer's stack and likely pain points | forward-deployed | the organisation's own `uses_tech`, `works_on`, hiring |
 
-**[owner]** confirm or edit these four profiles; they are the evaluation's point of view.
+Pilot evidence (§13) suggests the graph helps most where the answer depends on **specific, current facts about
+organisations** (adopt, deploy, build-for-employers) and least where the task is **learning or researching a
+well-known method**, which the model already knows.
+
+Use cases not yet covered (candidates, **[owner]** decides whether to add): a hiring manager scoping a role, an
+educator building a course, an analyst mapping a market segment, a founder looking for a gap. Each would be one more
+persona in the catalogue, with no code change.
 
 ## 5. Task set (Examiner)
 
@@ -73,7 +94,8 @@ to check fit.
 | Write | Gemma rewrites the request in the persona's voice with goal and constraints | leak check: no salient entity names added |
 | Reference | the Examiner stores, per task, the salient entities and their facts (for metrics and the judges' fact sheet) | ≥ 2 salient entities |
 
-Size: 16 tasks for v1 (4 personas × 4: 3 rich, 1 thin). Splits: dev (harness and prompt changes) and held-out
+Size: 16 tasks for v1 (8 personas × 2: 1 rich, 1 thin), so every use case in §4 is covered and H5 has a thin
+stratum. The Examiner oversamples ×4 and caches its outputs, so a task set is reproducible from its seed. Splits: dev (harness and prompt changes) and held-out
 (reported results only). Every task is pinned to its KB version and released.
 
 ## 6. Conditions
@@ -83,6 +105,9 @@ Size: 16 tasks for v1 (4 personas × 4: 3 rich, 1 thin). Splits: dev (harness an
 | Closed book | the request only |
 | Plain tools | graph tools, one free loop |
 | Agentic harness | plan → multi-step research → evidence gate → notes (findings with edges and implications) → coverage reflection → advice built from findings → synthesis check |
+| Agentic + fit (`kg_agentic+fit`) | the same, with the profile in context, scope rules and a prerequisite gate. Tested on dev, not promoted (§13) |
+
+Ablations switch harness steps off by name, e.g. `kg_agentic:read,reflect`.
 
 Planned (backlog): `web_agentic` (web search instead of the graph, same harness) and `kg_web_agentic` (both), to test
 whether the graph beats or complements open web search.
@@ -170,3 +195,40 @@ Phase B runs only if phase A's judge unit tests pass.
   for both answers' names, and checked by the false-claim unit test.
 - "Frontier relevance" depends on what the judges know; their training cutoff limits it.
 - Persona role-play is a proxy for real users; the owner's blind review is the anchor.
+
+## 13. Results so far
+
+Ledger: [`eval/experiments.jsonl`](../eval/experiments.jsonl). Run folders: `eval/experiments/<name>/<stamp>/`.
+
+| Run | What | Valid | Spend |
+|---|---|---|---|
+| `agency_pilot/20261122-0059` | pilot, 4 dev tasks, Inkling-2-small | **no**: blinding bug stripped lists from the answers the judges saw (ledger correction) | $0.16 |
+| `agency_pilot/20261122-0103` | the same answers re-judged with the fixed rendering | yes | $0.21 |
+| `agency_fit_dev/20261122-0106` | memory vs agentic vs agentic+fit, GLM judge | yes | $0.33 |
+
+**Judge unit tests pass** after sharpening the rubric anchors (no baseline → rigour ≤ 2; a plan the person can't
+run → fit ≤ 2): GLM catches 100% of degraded answers, Nemotron 92%.
+
+**H1 (grounding beats memory): mixed, split by use case.** On 4 tasks the absolute scores favour memory (persona
+judge 4.79 vs 4.17 in the pilot). Pairwise, grounding wins for the forward-deployed engineer (1.00) and the career
+switcher (0.75-1.00), and loses for the undergrad capstone (0.00) and the senior research engineer (0.00-0.25).
+Agentic vs memory moved from 0.56 to 0.44 between runs, so 4 tasks cannot settle it.
+
+**Fit-first: not promoted.** It did not win back the undergrad and senior RE tasks (vs memory 0.38), and the persona
+judge scored it lower (3.92).
+
+**H2-H5: not yet run.** H3 (small grounded vs large from memory) and H5 (thin graph) need the 16-task v1 set.
+
+**Measured judge biases** (pilot 0103, 64 pairwise judgements):
+
+| Bias | Finding | Response |
+|---|---|---|
+| Position | first-shown answer wins 62%; order-consistent 69% | both orders kept; inconsistent pairs count as ties |
+| Length | none (r = −0.15 / −0.25) | none needed |
+| Leniency / ceiling | GLM scores 4-5 in 95% of cases, Nemotron 81% | planned: yes/no checklist items instead of 1-5 scales |
+| Agreement | GLM vs Nemotron r = 0.31 | flagged; owner blind review as the anchor |
+| Familiarity (suspected) | memory answers name 49% of items not in the KB vs 26% for agentic; accuracy correlates +0.39 with that share | planned: controlled swap test (famous-but-wrong name vs fake name) |
+
+**Next** (pending approval): a memory-first, graph-enriched harness variant (draft from memory, then research the
+graph for organisations, tools, data and hiring), checklist scoring, the familiarity test, and the 16-task v1 set
+covering all eight personas.

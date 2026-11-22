@@ -226,7 +226,7 @@ def examine(per_persona: int = 6, rich: int = 4, seed: int = 13) -> tuple[list[d
 
 def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> dict:
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     grounded = condition == "kg_tools"
     if grounded:
         kg = copy.copy(kg)
@@ -277,7 +277,7 @@ def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> 
            "condition": condition, "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "answer": answer, "steps": steps,
            "prose": prose[:6000],
            "error": err, "metrics": metrics(kg, answer, task) if answer else None, "stratum": task.get("stratum"),
-           "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+           "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"guidance": task["id"], "model": model, "condition": condition, "metrics": out["metrics"]})
     return out
 
@@ -343,6 +343,44 @@ ADVISE = ("Now give your advice as JSON, built FROM your findings. Every project
           "≤ 8. Do not mention your tools or a graph in the text; put edge ids only in `sources`.")
 READ_GATE = ("You have not read any evidence yet. Before writing notes, call `evidence` on the 3-5 edges your advice "
              "will rely on most, and note what each source actually says.")
+ADVISE_FIT = ("Now give your advice as JSON, built FROM your findings AND fitted to this person. Rules:\n"
+              "1. Scope from their constraints: ONE main project sized to their stated time and compute, plus at most "
+              "one optional stretch project. The first step of the main project must be doable in a day.\n"
+              "2. Downscale frontier practice to their level: start with the smallest version that teaches the same "
+              "thing (e.g. a plain reference implementation before modifying a large production codebase).\n"
+              "3. Check prerequisites: hardware (e.g. which GPU generations a method needs), access, skills and data "
+              "must match what they have; if not, change the plan.\n"
+              "4. Every project lists in `based_on` the indices (0-based) of the findings it builds on; general "
+              "knowledge only where findings are silent.\n"
+              "5. Experiments are controlled: one question, a baseline, one change, a measure.\n"
+              "Limits: learn ≤ 6, projects 1-2 (stack ≤ 6), experiments 1-2, stack ≤ 8. Do not mention your tools or a "
+              "graph in the text; put edge ids only in `sources`.")
+
+
+class Prereq(_S):
+    project: str
+    requirement: str
+    person_has_it: bool
+    fix: str
+
+
+class PrereqCheck(_S):
+    checks: list[Prereq]
+
+
+PREREQ = ("Check your advice against this person. For each project, list its hard prerequisites (hardware and GPU "
+          "generation, access to systems or data, skills, time) and whether the person has each one given their "
+          "profile. Be strict and specific.")
+PREREQ_REVISE = ("These prerequisites are not met: {gaps}. Revise the advice so every project is feasible for this "
+                 "person (change the project, downscale it, or add the missing step), keeping the same JSON form.")
+
+
+def _profile_text(task: dict) -> str:
+    p = task.get("profile") or {}
+    return (f"\n\nAbout the person: {p.get('label', '')}. Background: {p.get('background', '')} Constraints: "
+            f"{p.get('constraints', '')} Goal: {p.get('goal', '')} Success looks like: {p.get('success', '')}") if p else ""
+
+
 REVISE = ("These projects do not build on any finding: {titles}. Revise the advice so that each project builds on at "
           "least one finding (or replace it with one that does), keeping the same JSON form.")
 
@@ -393,15 +431,17 @@ def _tool_loop(llm, msgs, kg, steps, max_steps, name):
     return ""
 
 
-def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozenset = frozenset()) -> dict:
+def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozenset = frozenset(),
+                on: frozenset = frozenset()) -> dict:
     """plan → research (multi-step) → evidence gate → notes → coverage reflection → advise → synthesis check.
     `off` switches parts off for ablations: plan, read (evidence gate), reflect (coverage reflection), revise
     (synthesis check), notes (advise straight from research)."""
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     kg = copy.copy(kg)
     kg.empty_hints, kg.truncation_notice, kg.neighbor_limit = True, True, GROUNDED_HARNESS["neighbor_limit"]
-    msgs = [{"role": "system", "content": SYS_GROUNDED + "\n\n" + kg.schema_card()},
+    fit = "fit" in on                                # fit-first variant: profile in context, scoped advice, prerequisite gate
+    msgs = [{"role": "system", "content": SYS_GROUNDED + (_profile_text(task) if fit else "") + "\n\n" + kg.schema_card()},
             {"role": "user", "content": task["question"]}]
     steps: list[dict] = []
     err, plan, notes, answer, prose, gates = None, [], [], None, "", {"read_gate": False, "reflection": [], "revised": False}
@@ -429,13 +469,22 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
                          + "; ".join(f"{i}. {plan[i - 1]}" for i in missing) + ". Research just these, then summarise."})
             prose += "\n" + _tool_loop(llm, msgs, kg, steps, 8, "guidance_agentic_reflect")
         msgs += [{"role": "user", "content": NOTES}, {"role": "assistant", "content": json.dumps({"findings": notes})}]
-        answer = _structured(llm, msgs + [{"role": "user", "content": ADVISE}], AgenticGuidance, "guidance_agentic_advise")
+        advise_prompt = ADVISE_FIT if fit else ADVISE
+        answer = _structured(llm, msgs + [{"role": "user", "content": advise_prompt}], AgenticGuidance, "guidance_agentic_advise")
         unlinked = [p_["title"] for p_ in answer.get("projects") or [] if not p_.get("based_on")]
         if "revise" not in off and answer.get("projects") and len(unlinked) > len(answer["projects"]) / 2:   # synthesis check
             gates["revised"] = True
-            msgs += [{"role": "user", "content": ADVISE}, {"role": "assistant", "content": json.dumps(answer)},
+            msgs += [{"role": "user", "content": advise_prompt}, {"role": "assistant", "content": json.dumps(answer)},
                      {"role": "user", "content": REVISE.format(titles="; ".join(unlinked))}]
             answer = _structured(llm, msgs, AgenticGuidance, "guidance_agentic_revise")
+        if fit:                                                                     # prerequisite gate
+            ctx = msgs + [{"role": "user", "content": advise_prompt}, {"role": "assistant", "content": json.dumps(answer)}]
+            chk = _structured(llm, ctx + [{"role": "user", "content": PREREQ}], PrereqCheck, "guidance_agentic_prereq").get("checks", [])
+            gaps = [f"{c['project']}: {c['requirement']}" for c in chk if not c.get("person_has_it")]
+            gates["prereq_gaps"] = gaps
+            if gaps:
+                answer = _structured(llm, ctx + [{"role": "user", "content": PREREQ_REVISE.format(gaps="; ".join(gaps[:8]))}],
+                                     AgenticGuidance, "guidance_agentic_prereq_revise")
         answer = _cap(answer)
     except BudgetExceeded:
         raise
@@ -451,10 +500,11 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
                                                  & set(task.get("salient") or [])) / max(len(task.get("salient") or []), 1), 3),
                "plan_coverage": round(len({f.get("subquestion") for f in notes} & set(range(1, len(plan) + 1))) / max(len(plan), 1), 3)}
     out = {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model,
-           "condition": "kg_agentic" + (":" + ",".join(sorted(off)) if off else ""), "kb_version": kg.kb_version,
+           "condition": "kg_agentic" + ("+" + "+".join(sorted(on)) if on else "") + (":" + ",".join(sorted(off)) if off else ""),
+           "kb_version": kg.kb_version,
            "run_id": trace.RUN_ID, "plan": plan, "notes": notes,
            "gates": gates, "answer": answer, "steps": steps, "prose": prose[:6000], "error": err, "metrics": met,
-           "stratum": task.get("stratum"), "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+           "stratum": task.get("stratum"), "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"guidance": task["id"], "model": model, "condition": "kg_agentic", "metrics": met, "gates": gates})
     return out
 
@@ -494,9 +544,9 @@ def _mentions(kg: KG, a: dict) -> list[str]:
         for i in range(len(words) - n + 1):
             g = " ".join(words[i:i + n])
             if len(g) >= 3:
-                m = kg.match(g, k=1, exact_first=True)
-                if m and m[0][0] >= 0.99 and kg.ents[m[0][1]]["type"] in ("org", "technology", "method", "model", "benchmark"):
-                    found.append(kg.name(m[0][1]))
+                x = kg.exact(g)                       # exact names only: a fuzzy scan per n-gram is far too slow
+                if x and kg.ents[x]["type"] in ("org", "technology", "method", "model", "benchmark"):
+                    found.append(kg.name(x))
     return found
 
 
@@ -531,10 +581,27 @@ class Pref(_S):
 _LEAK = re.compile(r"(according to|from|in|per) (the|our|my) (knowledge )?graph|knowledge graph|\bKG\b|edge[ _]?id", re.IGNORECASE)
 
 
+_CITE = re.compile(r"\[\s*(?:[a-z_]+:[^\]\s,]+(?:\|[^\]\s,]+)+)(?:\s*,\s*[a-z_]+:[^\]\s,]+(?:\|[^\]\s,]+)+)*\s*\]")
+
+
 def _blind(a: dict) -> str:
-    a = {k: v for k, v in (a or {}).items() if k != "sources"}
-    text = re.sub(r"\[[^\]]{6,}\]", "", json.dumps(a, ensure_ascii=False, indent=1))      # inline edge-id citations
-    return _LEAK.sub("", text)
+    """The same plain-text rendering for every condition: summary, learning path, projects, experiments, stack.
+    Internal pointers (sources, based_on) are dropped; inline edge-id citations and mentions of a graph are removed.
+    (A previous version stripped every bracketed JSON list over six characters, which deleted whole sections.)"""
+    a = a or {}
+    L = ["Summary: " + (a.get("summary") or ""), "", "What to learn, in order:"]
+    L += [f"{i + 1}. {x}" for i, x in enumerate(a.get("learn") or [])]
+    L += ["", "Projects:"]
+    for p_ in a.get("projects") or []:
+        L += [f"- {p_.get('title', '')}: {p_.get('what', '')}", f"  Stack: {', '.join(p_.get('stack') or [])}",
+              f"  First step: {p_.get('first_step', '')}"]
+    L += ["", "Experiments:"]
+    for e in a.get("experiments") or []:
+        L += [f"- {e.get('question', '')}", (f"  Baseline: {e.get('baseline', '')} · Change: {e.get('change', '')} · "
+                                             f"Measure: {e.get('measure', '')}")]
+    L += ["", "Stack: " + ", ".join(a.get("stack") or [])]
+    text = "\n".join(L)
+    return _LEAK.sub("", _CITE.sub("", text))
 
 
 def fact_sheet(kg: KG, *answers: dict) -> str:

@@ -1,0 +1,89 @@
+{
+ "name": "agency_pilot",
+ "ts": "20261122-0103",
+ "kb_version": "v20261122-0022",
+ "config": {
+  "name": "agency_pilot",
+  "tasks": {
+   "personas": [
+    "undergrad_capstone",
+    "career_switcher",
+    "senior_research_engineer",
+    "forward_deployed"
+   ],
+   "per_persona": 1,
+   "rich": 1,
+   "seed": 13
+  },
+  "models": [
+   "thinkingmachines/inkling-2-small"
+  ],
+  "conditions": [
+   "closed_book",
+   "kg_tools",
+   "kg_agentic"
+  ],
+  "judges": {
+   "models": [
+    "z-ai/glm-5.3",
+    "nvidia/nemotron-3.5-super-vl"
+   ],
+   "roles": [
+    "persona",
+    "expert"
+   ]
+  },
+  "validate_judges": true,
+  "unit_test_answers": 3,
+  "comparisons": [
+   {
+    "name": "agentic vs memory",
+    "x": {
+     "model": "thinkingmachines/inkling-2-small",
+     "condition": "kg_agentic"
+    },
+    "y": {
+     "model": "thinkingmachines/inkling-2-small",
+     "condition": "closed_book"
+    }
+   },
+   {
+    "name": "agentic vs plain tools",
+    "x": {
+     "model": "thinkingmachines/inkling-2-small",
+     "condition": "kg_agentic"
+    },
+    "y": {
+     "model": "thinkingmachines/inkling-2-small",
+     "condition": "kg_tools"
+    }
+   }
+  ],
+  "workers": 6
+ },
+ "tasks": 4,
+ "rejected_tasks": 2,
+ "judge_unit_tests": {
+  "z-ai/glm-5.3": {
+   "detected": 1.0,
+   "by_kind": {
+    "generic": 1.0,
+    "false_claim": 1.0,
+    "infeasible": 1.0,
+    "no_baseline": 1.0
+   },
+   "passes": true
+  },
+  "nvidia/nemotron-3.5-super-vl": {
+   "detected": 0.917,
+   "by_kind": {
+    "generic": 1.0,
+    "false_claim": 0.667,
+    "infeasible": 1.0,
+    "no_baseline": 1.0
+   },
+   "passes": true
+  }
+ },
+ "spend_usd": 0.2097
+}

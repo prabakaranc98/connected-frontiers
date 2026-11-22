@@ -76,7 +76,7 @@ def _parse_final(text: str) -> dict:
 
 def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 10, reasoning: int | None = 800) -> dict:
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     if condition == "kg_tools":
         messages = [{"role": "system", "content": SYSTEM_TOOLS}, {"role": "user", "content": task["brief"]}]
         tools = TOOL_SPECS
@@ -133,4 +133,4 @@ def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 10, rea
     return {"model": model, "condition": condition, "task_id": task["id"], "use_case": task["use_case"],
             "kb_version": kg.kb_version, "run_id": trace.RUN_ID,
             "output": final, "tool_calls": calls, "n_tool_calls": len(calls),
-            "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+            "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}

@@ -155,9 +155,46 @@ The next question is whether the graph helps people decide what to learn, build 
 profiles (undergraduate to senior research engineer, career switcher, forward-deployed engineer) get
 tasks curated from the graph; answers from memory, plain tools and the agentic harness are judged by
 persona and expert LLM judges, after the judges pass unit tests. Design and hypotheses:
-[docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md). On one capstone question, the agentic harness built its advice
-from 8 cited findings and surfaced 13 organisations that no answer from memory named; whether that holds
-across tasks is what the testbed measures.
+[docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md).
+
+**Pilot result (4 tasks, Inkling-2-small; too small to generalise).** Grounding wins where the answer depends on
+specific, current facts about organisations: the forward-deployed engineer's customer (preferred 1.00) and the
+career switcher's "which tools do companies use" (0.75-1.00). It loses where the task is learning or researching a
+well-known method: the undergrad capstone (0.00) and the senior research engineer (0.00-0.25). A fit-first harness
+variant did not close that gap and was not promoted. The judges pass their unit tests, but show position bias (62%
+first-shown) and a ceiling (95% of GLM scores are 4-5), so the next run moves to checklist scoring.
+
+### What the agent found in the graph (pilot discoveries)
+
+One setup: Inkling-2-small with the agentic harness (plan → research → read evidence → findings → advice), KB
+`v20261122-0022`. Every finding cites graph edges, and each edge carries its evidence status. **Self-claimed means
+the organisation said it about itself, not that it is true.** These are what the graph holds, not verified facts
+about the world.
+
+| Who asked | Finding the advice was built on | Evidence |
+|---|---|---|
+| **Forward-deployed engineer**, customer GEP Worldwide (procurement) | GEP runs a streaming-plus-search stack: Confluent Cloud, Kafka, Azure OpenAI/GPT, MongoDB, Elasticsearch. Only Confluent is confirmed by the counterparty; the rest comes from a Confluent customer story, so validate it on site | 8 edges; 1 counterparty-confirmed |
+| | The graph has no procurement or supply-chain benchmarks, so the first deliverable should be a customer-built golden set with rubric pass rates on held-out splits and citation-weighted scoring, the pattern the graph shows for Harvey and Applied Compute | 5 + 2 edges |
+| | RAG plus agent orchestration and observability is the dominant enterprise deployment pattern (Morgan Stanley, Notion, Infor, Atomicwork, France Travail, Dell AI Data Platform) | 6 edges |
+| **Career switcher** into RL, $100 budget | RL demand in the graph is in LLM post-training, alignment and agents, not robotics or games, and there are no Atari/MuJoCo-style benchmark entities | 7 + 3 edges |
+| | The strongest verified artifact nearby is Anthropic's `hh-rlhf` on Hugging Face, so the project is a small preference tune on it, followed by a reward-hacking audit (an evaluation-integrity gap; Abundant publishes on reward hacking in coding agents) | 3 edges, 1 verified |
+| | Hiring signals point to research engineer and applied-ML roles (Anthropic, Fireworks AI) rather than research scientist roles | 5 edges |
+| **Undergrad capstone**, speculative decoding | Speculative decoding lives inside serving frameworks (vLLM, SGLang), not standalone scripts, and there is no standard benchmark suite: evaluation is assembled from ShareGPT, prefill/decode-heavy sets and GSM8K/GPQA, using acceptance rate and end-to-end speedup | 6 + 3 + 7 edges |
+| | Variants in use: draft-model, Medusa/EAGLE-style heads (vLLM), EAGLE-3 (Magicare AI), runtime-adapting speculators (Together AI's ATLAS, self-claimed) | 9 edges |
+| **Senior research engineer**, FlashAttention-3 | Nearly every FA-3 result in the graph is self-claimed by Together AI, vLLM or SGLang, with no third-party verification, so the informative experiment is an independent, reproducible FA-2 vs FA-3 benchmark | 3 edges |
+| | Competing kernel work to baseline against: ThunderKittens (Together AI claims 1.8× over FA-3 on Blackwell, self-claimed); SGLang's portability across FlashInfer, FlashMLA and Triton vs FA-3's Hopper-only design | 4 + 6 edges |
+
+What stands out across the four:
+- The agent reports **gaps** as findings: no GEP hiring edges, no procurement benchmarks, no independent FA-3
+  verification. A model answering from memory cannot say what is missing from the evidence.
+- The **evidence status** changes the advice: "validate the stack on site", "the gap is independent
+  verification".
+- The judges still preferred the memory answers for the capstone and the senior RE. The grounded answer was more
+  specific, but not a better plan for a learner. The pilot result above says the same.
+
+The full trajectories (plan, every tool call, findings with edge ids, advice, judge scores) are written by
+`cf experiment` to `eval/experiments/<name>/<stamp>/` and packaged by `cf release` as `runs/agency_trajectories`
+and `labels/agency_judgments` for the Hugging Face collection (pushed privately, on approval).
 
 ## Quickstart
 

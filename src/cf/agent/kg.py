@@ -48,6 +48,14 @@ class KG:
     def name(self, eid: str) -> str:
         return self.ents[eid]["name"] if eid in self.ents else eid
 
+    def exact(self, text: str, etype: str | None = None) -> str | None:
+        """O(1) exact (normalized) name lookup, no fuzzy fallback; best-ranked hit or None."""
+        hits = {eid for t in ([etype] if etype else self._types) for eid in self._exact.get((t, normalize(text, t)), ())}
+        if not hits:
+            return None
+        pref = {"org": 3, "model": 2, "method": 2, "benchmark": 2, "technology": 1}
+        return max(hits, key=lambda h: (pref.get(self.ents[h]["type"], 0), self.ents[h].get("pagerank") or 0))
+
     def match(self, text: str, k: int = 5, etype: str | None = None, exact_first: bool = False) -> list[tuple[float, str]]:
         """Fuzzy name → entity. The query is normalized the same way as each candidate's type;
         exact > substring (weighted by length overlap) > fuzzy; ties broken by type and PageRank.

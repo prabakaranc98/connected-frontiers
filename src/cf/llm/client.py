@@ -21,6 +21,9 @@ _LOG_LOCK = threading.Lock()
 T = TypeVar("T", bound=BaseModel)
 
 
+_SPEND_LOCK = threading.Lock()
+
+
 class BudgetExceeded(RuntimeError):
     pass
 
@@ -86,6 +89,7 @@ class LLM:
         self.fallbacks = [m for m in (fallbacks or []) if m != model]
         self.budget = budget_usd if budget_usd is not None else float(config.env("CF_LLM_BUDGET_USD", "20"))
         self.base = config.env("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        self.spent = 0.0
         self.http = httpx.Client(timeout=timeout, headers={
             "Authorization": f"Bearer {config.env('OPENROUTER_API_KEY')}",
             "X-Title": "connected-frontiers",
@@ -141,7 +145,9 @@ class LLM:
                 content = choice["message"].get("content") or ""
                 usage = data.get("usage", {})
                 cost = float(usage.get("cost") or 0.0)
-                LLM.spent_usd += cost
+                with _SPEND_LOCK:                     # += on a float is not atomic across threads
+                    LLM.spent_usd += cost
+                self.spent += cost                     # this client's own spend (per-run cost under concurrency)
                 finish = choice.get("finish_reason") or choice.get("native_finish_reason")
                 self._log(name, usage, cost, finish)
                 if finish == "length" or not content.strip():
@@ -199,7 +205,9 @@ class LLM:
                     raise RuntimeError(f"OpenRouter error: {data['error']}")
                 usage = data.get("usage", {})
                 cost = float(usage.get("cost") or 0.0)
-                LLM.spent_usd += cost
+                with _SPEND_LOCK:                     # += on a float is not atomic across threads
+                    LLM.spent_usd += cost
+                self.spent += cost                     # this client's own spend (per-run cost under concurrency)
                 choice = data["choices"][0]
                 self._log(name, usage, cost, choice.get("finish_reason"))
                 msg = choice["message"]

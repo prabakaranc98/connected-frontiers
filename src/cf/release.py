@@ -133,6 +133,12 @@ def build(version: str | None = None) -> dict:
              for r in _r(Path(f)) if r.get("kb_version") == v]
     counts["runs/session_trajectories"] = _w(out / "runs" / "session_trajectories.jsonl", sruns)
 
+    # agency testbed: persona tasks, agent trajectories, judge labels (only ledger-valid experiment runs)
+    atasks, aruns, ajudg = agency_rows(v)
+    counts["bench/agency_tasks"] = _w(out / "bench" / "agency_tasks.jsonl", atasks)
+    counts["runs/agency_trajectories"] = _w(out / "runs" / "agency_trajectories.jsonl", aruns)
+    counts["labels/agency_judgments"] = _w(out / "labels" / "agency_judgments.jsonl", ajudg)
+
     labels = []
     for f in sorted(glob.glob(str(config.EVAL / "gold" / "silver_*_v*.jsonl"))):
         for r in _r(Path(f)):
@@ -153,14 +159,47 @@ def build(version: str | None = None) -> dict:
             "datasets": {p: f"connected-frontiers-{p}" for p in ("kg", "bench", "runs", "labels")}}
 
 
+def valid_experiment_dirs() -> list[Path]:
+    """Experiment run folders recorded in the ledger and not invalidated by a later correction record."""
+    ledger = _r(config.EVAL / "experiments.jsonl") if (config.EVAL / "experiments.jsonl").exists() else []
+    bad = {r["correction_of"] for r in ledger if r.get("correction_of") and r.get("valid") is False}
+    return [Path(r["dir"]) for r in ledger
+            if r.get("level") == "agency" and r.get("dir") and not r.get("correction_of")
+            and r["ts"] not in bad and Path(r["dir"]).exists()]
+
+
+def agency_rows(v: str) -> tuple[list, list, list]:
+    tasks, runs, judg, seen_t, seen_r = [], [], [], set(), set()
+    for d in valid_experiment_dirs():
+        exp = f"{d.parent.name}/{d.name}"
+        for t in _r(d / "tasks.jsonl"):
+            if t.get("kb_version") == v and t["id"] not in seen_t:
+                seen_t.add(t["id"])
+                tasks.append(t)
+        for r in _r(d / "runs.jsonl"):
+            key = (r["task_id"], r["model"], r["condition"], r.get("run_id"))
+            if r.get("kb_version") == v and key not in seen_r:
+                seen_r.add(key)
+                runs.append({"experiment": exp, **{k: r.get(k) for k in (
+                    "task_id", "persona", "stratum", "question", "model", "condition", "kb_version", "run_id", "plan",
+                    "notes", "gates", "answer", "steps", "error", "metrics", "cost_usd", "latency_s")}})
+        if (d / "tasks.jsonl").exists() and any(t.get("kb_version") == v for t in _r(d / "tasks.jsonl")):
+            judg += [{"experiment": exp, "kind": "score", **r} for r in _r(d / "scores.jsonl")]
+            judg += [{"experiment": exp, "kind": "pairwise", **r} for r in _r(d / "pairwise.jsonl")]
+    return tasks, runs, judg
+
+
 PURPOSE = {
     "kg": "The curated knowledge graph: entities, typed edges with evidence status, citations, document index "
           "(GraphRAG), segments, hierarchy, and `triples.tsv` for KG-embedding tools. One revision tag per KB version.",
     "bench": "Task benchmark pinned to a KB version: use-case tasks (and multi-turn sessions) with computed answer keys "
-             "and gold evidence ids (edges / passages), so both retrieval and answers can be scored.",
+             "and gold evidence ids (edges / passages), so both retrieval and answers can be scored; and persona agency tasks "
+             "(learn / research / build / adopt / deploy) curated by a separate model family.",
     "runs": "Agent trajectories: every step (tool, args, thought, ids touched = traversal), final answer, citations, "
-            "scores, cost and latency, per model x condition x task.",
-    "labels": "Silver labels from a 4-judge ensemble (verification and entity resolution) and owner gold labels.",
+            "scores, cost and latency, per model x condition x task; agency trajectories add the plan, findings with "
+            "cited edge ids, and the advice built from them.",
+    "labels": "Silver labels from a 4-judge ensemble (verification and entity resolution) and owner gold labels; "
+              "persona and expert LLM-judge scores and pairwise preferences (both orders) for agency runs.",
 }
 
 
@@ -168,9 +207,10 @@ def _card(v: str, part: str, counts: dict) -> str:
     files = {"kg": [("entities", "entities.jsonl"), ("edges", "edges.jsonl"), ("evidence", "evidence.jsonl"),
                     ("documents", "documents.jsonl"), ("chunk_index", "chunk_index.jsonl"), ("segments", "segments.jsonl"),
                     ("hierarchy", "hierarchy.jsonl")],
-             "bench": [("tasks", "tasks.jsonl"), ("sessions", "sessions.jsonl")],
-             "runs": [("trajectories", "trajectories.jsonl"), ("session_trajectories", "session_trajectories.jsonl")],
-             "labels": [("labels", "labels.jsonl")]}[part]
+             "bench": [("tasks", "tasks.jsonl"), ("sessions", "sessions.jsonl"), ("agency_tasks", "agency_tasks.jsonl")],
+             "runs": [("trajectories", "trajectories.jsonl"), ("session_trajectories", "session_trajectories.jsonl"),
+                      ("agency_trajectories", "agency_trajectories.jsonl")],
+             "labels": [("labels", "labels.jsonl"), ("agency_judgments", "agency_judgments.jsonl")]}[part]
     configs = "\n".join(f"- config_name: {n}\n  data_files: {f}" for n, f in files)
     rows = "\n".join(f"| {k} | {n:,} |" for k, n in counts.items())
     return f"""---

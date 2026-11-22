@@ -188,7 +188,7 @@ SYSTEM_CLOSED = ("You are an analyst of the frontier-AI ecosystem. Answer from y
 
 def run(model: str, task: dict, condition: str, kg: KG, reasoning="auto", max_steps: int = 12) -> dict:
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     tools = TOOL_SPECS if condition == "kg_tools" else None
     msgs = [{"role": "system", "content": SYSTEM_TOOLS if tools else SYSTEM_CLOSED}, {"role": "user", "content": task["question"]}]
     steps, prose, err = [], "", None
@@ -229,7 +229,7 @@ def run(model: str, task: dict, condition: str, kg: KG, reasoning="auto", max_st
             err = f"claims: {str(e)[:160]}"
     out = {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model, "condition": condition,
            "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "brief": brief, "steps": steps, "error": err,
-           "score": score(kg, brief), "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+           "score": score(kg, brief), "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"discovery": task["id"], "model": model, "condition": condition, "score": {
         k: v for k, v in out["score"].items() if k != "checks"}})
     return out

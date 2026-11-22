@@ -153,10 +153,12 @@ def answer(task: dict, model: str, condition: str, kg: KG) -> dict:
     f = CACHE / f"{_key(task, model, condition)}.json"
     if f.exists():
         return {**json.loads(f.read_text()), "cached": True}
-    t = {**task, "persona": task["persona"]}
-    if condition.startswith("kg_agentic"):                  # e.g. "kg_agentic:read,reflect" = those parts switched off
-        off = frozenset(x for x in condition.partition(":")[2].split(",") if x)
-        r = {**G.run_agentic(model, t, kg, off=off), "condition": condition}
+    t = {**task, "persona": task["persona"], "profile": personas()[task["persona"]]}
+    if condition.startswith("kg_agentic"):     # "kg_agentic+fit:read" = fit-first on, evidence gate off
+        head, _, offs = condition.partition(":")
+        on = frozenset(head.split("+")[1:])
+        off = frozenset(x for x in offs.split(",") if x)
+        r = {**G.run_agentic(model, t, kg, off=off, on=on), "condition": condition}
     else:
         r = G.run(model, t, condition, kg)
     if r.get("answer"):
@@ -190,7 +192,7 @@ class Pref(_S):
 PERSONA_JUDGE = """You ARE this person: {label}. Background: {background} Constraints: {constraints} Goal: {goal}
 You asked the question below and received advice. Judge it as yourself. Write your reasoning first, then score 1-5:
 - usefulness: 1 generic, I learn nothing new · 3 some useful steps · 5 changes what I would do this week
-- fit: 1 ignores my skills or constraints · 3 partly fits · 5 fits my background, time and compute
+- fit: 1 ignores my skills or constraints · 3 partly fits · 5 fits my background, time and compute. Check prerequisites (hardware, access, skills): a plan I cannot run scores at most 2.
 - would_act: 1 no · 3 maybe · 5 yes, starting now
 A REFERENCE sheet describes names in the advice from a curated knowledge base; "not in reference" does not mean false.
 Length is not quality."""
@@ -200,7 +202,7 @@ EXPERT_JUDGE = """You are a senior practitioner at the frontier of AI research a
 - frontier_relevance: 1 dated or generic practice · 3 current mainstream · 5 reflects what leading teams do now
 - insight: 1 a tutorial list anyone could find · 3 some useful connections · 5 non-obvious, specific connections that change the plan
 - actionability: 1 vague or infeasible under the constraints · 3 concrete but partly feasible · 5 concrete first steps and stack, feasible as stated
-- experiment_rigor: 1 no real experiment · 3 a question and a measure · 5 question, baseline, one controlled change, measure, a threat to validity
+- experiment_rigor: 1 no real experiment · 3 a question and a measure · 5 question, baseline, one controlled change, measure, a threat to validity. An experiment without a real baseline or control scores at most 2.
 - accuracy: 1 invented or wrong claims · 3 mostly right, unqualified · 5 correct, with uncertainty and self-claims flagged
 A REFERENCE sheet describes names in the advice from a curated knowledge base; "not in reference" does not mean false.
 Length is not quality."""
@@ -270,18 +272,22 @@ TARGET = {"generic": ("expert", "insight"), "false_claim": ("expert", "accuracy"
           "infeasible": ("persona", "fit"), "no_baseline": ("expert", "experiment_rigor")}
 
 
-def judge_unit_tests(judges: list[str], tasks: list[dict], answers: list[dict], kg: KG) -> dict:
-    """For each good answer and perturbation: does the targeted dimension drop? Pass ≥ 80% per judge."""
+def judge_unit_tests(judges: list[str], tasks: list[dict], answers: list[dict], kg: KG, workers: int = 8) -> dict:
+    """For each good answer and perturbation: does the targeted dimension drop? Pass ≥ 80% per judge.
+    All judge calls run in parallel (reasoning judges take up to a minute per call)."""
+    base_jobs = [(j, role, i) for i in range(len(tasks)) for j in judges for role in ("persona", "expert")]
+    pert_jobs = [(j, kind, i) for i in range(len(tasks)) for j in judges for kind in TARGET]
+    sheets = [G.fact_sheet(kg, a) for a in answers]
+    with ThreadPoolExecutor(workers) as pool:
+        base = dict(zip(base_jobs, pool.map(lambda x: score(x[0], x[1], tasks[x[2]], answers[x[2]], sheets[x[2]]), base_jobs), strict=True))
+        pert = dict(zip(pert_jobs, pool.map(lambda x: score(x[0], TARGET[x[1]][0], tasks[x[2]], perturb(answers[x[2]], x[1]),
+                                                             G.fact_sheet(kg, perturb(answers[x[2]], x[1]))), pert_jobs), strict=True))
     rows = []
-    for t, ans in zip(tasks, answers, strict=True):
-        sheet = G.fact_sheet(kg, ans)
-        for j in judges:
-            base = {role: score(j, role, t, ans, sheet) for role in ("persona", "expert")}
-            for kind, (role, dim) in TARGET.items():
-                pa = perturb(ans, kind)
-                s = score(j, role, t, pa, G.fact_sheet(kg, pa))
-                rows.append({"judge": j, "task": t["id"], "kind": kind, "dim": dim, "before": base[role][dim],
-                             "after": s[dim], "detected": s[dim] < base[role][dim]})
+    for (j, kind, i), s_ in pert.items():
+        role, dim = TARGET[kind]
+        b = base[(j, role, i)][dim]
+        rows.append({"judge": j, "task": tasks[i]["id"], "kind": kind, "dim": dim, "before": b, "after": s_[dim],
+                     "detected": s_[dim] < b})
     res = {}
     for j in judges:
         mine = [r for r in rows if r["judge"] == j]
