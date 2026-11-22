@@ -196,20 +196,40 @@ The full trajectories (plan, every tool call, findings with edge ids, advice, ju
 `cf experiment` to `eval/experiments/<name>/<stamp>/` and packaged by `cf release` as `runs/agency_trajectories`
 and `labels/agency_judgments` for the Hugging Face collection (pushed privately, on approval).
 
-### Generated use cases, three trials, judges (latest)
+### Does grounding make guidance better? (latest results)
 
-`cf usecases` generates task sets from a use-case catalogue (customer stack, hiring, method adoption, vendor choice,
-base model, benchmark, learning a method), answers them under each condition and scores every stage. On 11 generated
-tasks ([details](docs/AGENCY_EVAL.md#use-case-testbed-v1-2026-11-22-generated-tasks-three-trials-judges)):
+![Results poster](docs/posters/grounding-results.png)
 
-| Comparison (GLM judge, both orders) | P(first preferred) [95% CI] |
+*Poster generated from the run files by `scripts/make_results_poster.py` ([SVG](docs/posters/grounding-results.svg)).*
+
+`cf usecases` generates task sets from a use-case catalogue, answers them under each condition (3 trials for the main
+model) and scores every stage. Two studies, 22 generated tasks, $5.6 in total:
+
+| Comparison (pairwise, both orders, persona + expert roles) | GLM | Nemotron | GLM, length-matched |
+|---|---|---|---|
+| small model, memory-first vs **397B model from memory** | 0.98 | 0.95 | **0.98** |
+| memory-first (draft from memory, edited with the graph) vs memory | 0.91 | 0.84 | 0.59 [0.36–0.82] |
+| agentic (plan from graph facts) vs memory | 0.50 | 0.61 | 0.50 |
+
+- **Robust:** a small model that edits its own draft with the graph beats a 397B model answering from memory, under
+  two judge families and with answer length matched.
+- **Not yet robust:** memory-first vs the same model from memory. Much of the preference goes away when both
+  answers are cut to the same length, although cutting may remove exactly what the graph added.
+- **Objects** (models, papers, methods, tools, benchmarks, datasets): agentic retrieval reaches nearly all gold objects
+  of every type except tool stacks (0.52, a second hop). **Papers are retrieved every time and named in no answer**:
+  the advice format has no reading-list slot.
+
+**What the graph changed in a memory draft** (real edits recorded by memory-first, Inkling-2-small):
+
+| Question | Edit |
 |---|---|
-| memory-first (draft from memory, edited with the graph) vs memory | **0.91 [0.75–1.00]** |
-| agentic (plan from the graph) vs memory | 0.50 [0.27–0.73] |
-| small model, memory-first vs 397B model from memory | **0.98 [0.93–1.00]** |
+| Should we adopt Ai2 ScholarQA? | *replaced* the generic "OpenAI or Anthropic API" with Claude 3.7 Sonnet, the model ScholarQA is built on; added Open S2ORC and Vespa from its documented architecture |
+| Should we move to Mixture-of-Experts? | *softened* "MoE is production-proven": only one org-level signal exists, self-claimed; promoted DeepSeek-V3 (verified offering) as the baseline |
+| First meeting with NBCUniversal as a customer | *stated a gap*: no deployment workflow, methods or models are documented, so discovery comes first; *added* SAP S/4HANA, flagged as self-claimed |
+| Benchmarking on ARC-AGI | *added* o3-preview and o4-mini scores as baselines; *flagged* that every ARC-AGI result in the graph is claimed, none verified |
+| Capstone on quantization (**failure**) | demoted QAT to a stretch goal because the graph "has no usable coverage"; QAT is well established, the graph just lacks it |
 
-Grounding helps most when it edits a good plan rather than replacing it. Caveats: one judge family, 11 tasks,
-memory-first answers are longer and length was not controlled in this run.
+Full tables: [docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md) · how retrieval is measured: [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
 
 ### Retrieval, grounding and use (agentic GraphRAG)
 

@@ -93,12 +93,15 @@ CURATE_BY_INTENT = {
               "prepare for? Reject generic or ambiguous names.",
     "research": "Is '{a}' specific enough to be a PhD research direction (a problem with open questions), not a whole "
                 "field, a business function or a buzzword?",
-    "build": "Is '{a}' a real, specific model this person could fine-tune or build on? Reject internal test artefacts "
-             "and ambiguous names.",
+    "build": "Is '{a}' a real, specific model or dataset this person could fine-tune, build on or use? Reject internal "
+             "test artefacts and ambiguous names.",
     "learn": "Is '{a}' a meaningful, specific technique this person could learn by implementing it? Reject generic words.",
 }
+# The curator must not judge existence from its own memory: it rejected Qwen3.8-27B, Claude Opus 5.5 and
+# DeepSeek-V4.1-Flash as "not real" (its training cutoff; found 2026-11-22). Names come from a curated graph.
 CURATE_ROLE = ("You check tasks for an evaluation of career and engineering guidance. The asker is: {label} ({background}). "
-               "{check} Reason first.")
+               "The subject comes from a curated knowledge graph of the AI ecosystem built from recent sources, so it "
+               "exists even if you do not know it; never reject it as unknown, unreleased or fictional. {check} Reason first.")
 
 
 def _clean(text: str) -> str:
@@ -112,7 +115,7 @@ def _write(kg: KG, uc_key: str, uc: dict, anchor: str, gold_names: list[str], ex
     p = A.personas()[uc["persona"]]
     a = kg.name(anchor)
     q = uc["question"].format(a=a)
-    check = CURATE_BY_INTENT.get(uc["intent"], CURATE_BY_INTENT["learn"]).format(a=a)
+    check = (uc.get("check") or CURATE_BY_INTENT.get(uc["intent"], CURATE_BY_INTENT["learn"])).format(a=a)
     sys_ = CURATE_ROLE.format(label=p["label"], background=p["background"], check=check)
     ck = A.CACHE / "examiner" / ("uc-" + hashlib.sha256(json.dumps([uc_key, anchor, q, examiner, sys_, A.WRITE]).encode()).hexdigest()[:24] + ".json")
     if ck.exists():
@@ -127,7 +130,7 @@ def _write(kg: KG, uc_key: str, uc: dict, anchor: str, gold_names: list[str], ex
     if not d["curate"]["meaningful"]:
         return None, f"curator: {d['curate']['reason'][:140]}"
     text = _clean(d["written"]["request"])
-    leaked = [n for n in gold_names if len(n) > 3 and n.lower() in text.lower() and n.lower() != a.lower()]
+    leaked = [n for n in gold_names if len(n) > 3 and n.lower() in text.lower() and n.lower() not in a.lower()]
     if a.lower() not in text.lower() or leaked:
         return None, f"writer: subject dropped or leaked {leaked[:3]}"
     return {"question": text, "template_question": q, "curator_reason": d["curate"]["reason"]}, ""
@@ -281,6 +284,22 @@ def report(result: dict, tasks: list[dict], rejected: list[dict], stages: list[d
         gn = [s["pass"] for s in xs if s.get("trial", 0) == 0 and s["task_id"] not in mem]
         L.append(f"| {m.split('/')[-1]} | {c} | {_f(_m(t0))} | {_f(_m([any(v) for v in per.values()]))} | "
                  f"{_f(_m([all(v) for v in per.values()]))} | {_f(_m(gn))} (n={len(gn)}) |")
+    # object retrieval: per object type, the share of gold objects of that type that were retrieved and used
+    types = sorted({ty for s in stages for ty in (s.get("by_type") or {})})
+    if types:
+        L += ["", "## By object type (main model, all trials): retrieved / used, share of gold objects of that type", "",
+              "| Condition | " + " | ".join(types) + " |", "|---|" + "---|" * len(types)]
+        from collections import Counter as _C
+        m_main = _C(s["model"] for s in stages).most_common(1)[0][0]
+        for c in sorted({s["condition"] for s in stages if s["model"] == m_main}):
+            cells = []
+            for ty in types:
+                g = r_ = u_ = 0
+                for s in stages:
+                    if s["model"] == m_main and s["condition"] == c and ty in (s.get("by_type") or {}):
+                        g, r_, u_ = g + s["by_type"][ty][0], r_ + s["by_type"][ty][1], u_ + s["by_type"][ty][2]
+                cells.append(f"{r_ / g:.2f} / {u_ / g:.2f} (n={g})" if g else "–")
+            L.append(f"| {c} | " + " | ".join(cells) + " |")
     ucs = sorted({s["usecase"] for s in stages})
     conds = sorted({s["condition"] for s in stages if not s["model"].endswith("397b-a17b")})
     L += ["", "## Used in the answer, by use case (main model; mean over trials)", "",

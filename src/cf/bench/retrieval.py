@@ -39,11 +39,15 @@ def gold(kg: KG, specs: list[dict]) -> dict:
         got: list[str] = []
         if "anchor" in sp:
             a, rels, d = sp["anchor"], set(sp.get("relations") or []), sp.get("direction", "both")
+            types = set(sp.get("types") or [])                  # object types the question asks for (model, paper, ...)
             for i in kg.adj.get(a, []):
                 e = kg.edges[i]
                 if e["status"] == "unsupported" or (rels and e["relation"] not in rels):
                     continue
                 if d == "out" and e["head"] != a or d == "in" and e["tail"] != a:
+                    continue
+                other = e["tail"] if e["head"] == a else e["head"]
+                if types and kg.ents[other]["type"] not in types:
                     continue
                 got.append(i)
         elif "path" in sp:
@@ -77,7 +81,14 @@ def stage_metrics(kg: KG, run: dict, g: dict) -> dict:
     text = G._blind(run.get("answer") or {})
     n = max(len(gold), 1)
     reached, used = gold & touched, gold & ans
-    return {"gold": len(gold), "retrieved": round(len(reached) / n, 3), "grounded": round(len(gold & found) / n, 3) if run.get("notes") is not None else None,
+    by_type = {}
+    for x in gold:
+        t = kg.ents[x]["type"]
+        b = by_type.setdefault(t, [0, 0, 0])               # gold, retrieved, used (counts per object type)
+        b[0] += 1
+        b[1] += x in touched
+        b[2] += x in ans
+    return {"by_type": by_type, "gold": len(gold), "retrieved": round(len(reached) / n, 3), "grounded": round(len(gold & found) / n, 3) if run.get("notes") is not None else None,
             "used": round(len(used) / n, 3), "utilisation": round(len(used & reached) / len(reached), 3) if reached else None,
             "precision": round(len(reached) / len(touched), 3) if touched else None, "touched": len(touched),
             "doubt": len(_DOUBT.findall(text)), "named": (run.get("metrics") or {}).get("named"),

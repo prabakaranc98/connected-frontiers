@@ -300,3 +300,37 @@ Reading:
   (4,924 vs 3,377 chars) and 83% longer than the 397B's, and length was not controlled in this run (the pilot found
   no length bias); pass^3 = pass@1 for Qwen (one trial). Next: a second judge family, a length-matched check, and the
   owner's blind review.
+
+### Judge bias check on usecases_v1 (2026-11-22, $0.47)
+
+`scripts/judge_bias_check.py` re-judged the cached answers: a second judge family (Nemotron) and GLM with both answers
+cut to the same structure and length.
+
+| Comparison | GLM (original) | Nemotron | GLM, length-matched |
+|---|---|---|---|
+| memory-first vs memory | 0.91 [0.75–1.00] | 0.84 [0.66–1.00] | **0.59 [0.36–0.82]** |
+| agentic vs memory | 0.50 [0.27–0.73] | 0.61 [0.50–0.73] | 0.50 [0.25–0.75] |
+| small memory-first vs large memory | 0.98 [0.93–1.00] | 0.95 [0.89–1.00] | **0.98 [0.93–1.00]** |
+
+The small-vs-large result survives both checks. Memory-first vs memory does not survive length matching; length
+matching may also remove the details the graph added, so the honest reading is "not yet shown", not "no effect".
+
+### Object retrieval study: usecases_objects (2026-11-22, $2.62)
+
+6 object use cases (method ecosystem, model card, benchmark models, lab output, framework stack, dataset lineage),
+11 tasks; Inkling-2-small 3 trials. Share of gold objects of each type retrieved / named in the answer:
+
+| Condition | model | paper | method | tech/tool | benchmark | dataset | org |
+|---|---|---|---|---|---|---|---|
+| typical GraphRAG | 0.81 / 0.18 | 0.07 / 0.00 | 0.16 / 0.16 | 0.14 / 0.09 | 0.41 / 0.14 | 0.88 / 0.04 | 0.38 / 0.21 |
+| agentic | 1.00 / 0.36 | 1.00 / **0.00** | 1.00 / 0.30 | 0.52 / 0.21 | 1.00 / 0.41 | 1.00 / 0.29 | 0.97 / 0.42 |
+| memory-first | 0.95 / 0.26 | 0.93 / **0.00** | 1.00 / 0.16 | 0.51 / 0.12 | 0.94 / 0.25 | 1.00 / 0.12 | 0.91 / 0.56 |
+| memory | 0.00 / 0.01 | 0.00 / 0.00 | 0.00 / 0.07 | 0.00 / 0.03 | 0.00 / 0.06 | 0.00 / 0.00 | 0.00 / 0.08 |
+
+Judges (GLM): memory-first vs memory 0.86 [0.70–0.98], vs agentic 0.93, small memory-first vs 397B memory 1.00;
+agentic vs memory 0.55. Outcome on graph-needed tasks: agentic 0.60, memory-first 0.60, typical GraphRAG 0.10,
+memory 0.00.
+
+Findings: papers are never named (the advice schema has no reading list); tool stacks need a second hop and are half
+retrieved; the curator rejected models it did not know (Qwen3.8-27B, Claude Opus 5.5) as "not real" until told that
+names come from the graph.
