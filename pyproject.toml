@@ -18,6 +18,7 @@ dependencies = [
   "openai>=1.40", # OpenRouter speaks the OpenAI-compatible API
   "numpy>=1.26",
   "scipy>=1.11",
+  "huggingface-hub>=0.26",
 ]
 
 [project.optional-dependencies]

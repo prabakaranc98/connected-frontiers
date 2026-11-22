@@ -39,10 +39,16 @@ def _r(path: Path) -> list[dict]:
     return [json.loads(x) for x in path.read_text().split("\n") if x.strip()] if path.exists() else []
 
 
-def build(version: str | None = None) -> dict:
+def build(version: str | None = None, all_versions: bool = False) -> dict:
+    """`all_versions=False`: everything pinned to one KB version. `all_versions=True` (the collection): the graph is
+    this version, while tasks, runs and labels come from every KB version, each row naming the version its answer
+    key or run belongs to (an answer key is only valid on its own KB version)."""
     v = version or kb.current()
     src = kb.path(v)
-    out = config.DATA / "release" / v
+    out = config.DATA / "release" / (f"{v}-collection" if all_versions else v)
+
+    def keep(row_version) -> bool:
+        return bool(row_version) and (all_versions or row_version == v)
     if out.exists() and out.parent == config.DATA / "release":     # generated output: rebuild from scratch
         shutil.rmtree(out)
     g = json.loads((src / "graph.json").read_text())
@@ -87,7 +93,7 @@ def build(version: str | None = None) -> dict:
     tasks = []
     for f in sorted(glob.glob(str(config.EVAL / "gold" / "tasks_*.jsonl"))):
         for t in _r(Path(f)):
-            if t.get("kb_version") != v:            # answer keys are only valid on the KB they were computed on
+            if not keep(t.get("kb_version")):       # answer keys are only valid on the KB they were computed on
                 continue
             tasks.append({"task_id": t["id"], "task_set": Path(f).stem, "kb_version": t.get("kb_version", v),
                           "use_case": t["use_case"], "turns": t.get("turns") or [{"role": "user", "content": t["brief"]}],
@@ -103,9 +109,9 @@ def build(version: str | None = None) -> dict:
         if "rejected" in f:
             continue
         for x in _r(Path(f)):
-            if x.get("kb_version") != v:
+            if not keep(x.get("kb_version")):
                 continue
-            sess.append({"session_id": x["id"], "session_set": Path(f).stem, "kb_version": v, "template": x["template"],
+            sess.append({"session_id": x["id"], "session_set": Path(f).stem, "kb_version": x["kb_version"], "template": x["template"],
                          "persona": x.get("persona"), "anchors": x["anchors"],
                          "turns": [{"role": "user", "content": m, "answer_key": t["key"]}
                                    for m, t in zip(x["messages"], x["turns"], strict=True)],
@@ -117,7 +123,7 @@ def build(version: str | None = None) -> dict:
     traj = []
     for f in sorted(glob.glob(str(config.EVAL / "results" / "bench_*.jsonl"))):
         for r in _r(Path(f)):
-            if r.get("kb_version") != v:
+            if not keep(r.get("kb_version")):
                 continue
             o = r.get("output") or {}
             traj.append({"run_file": Path(f).name, "run_id": r.get("run_id"), "kb_version": r.get("kb_version", v),
@@ -130,11 +136,11 @@ def build(version: str | None = None) -> dict:
     sruns = [{"run_file": Path(f).name, **{k: r[k] for k in ("session_id", "template", "model", "condition", "kb_version",
               "run_id", "turns", "steps", "turn_scores", "mean_score", "all_turns_pass", "cost_usd", "latency_s")}}
              for f in sorted(glob.glob(str(config.EVAL / "results" / "sessions_*.jsonl")))
-             for r in _r(Path(f)) if r.get("kb_version") == v]
+             for r in _r(Path(f)) if keep(r.get("kb_version"))]
     counts["runs/session_trajectories"] = _w(out / "runs" / "session_trajectories.jsonl", sruns)
 
     # agency testbed: persona tasks, agent trajectories, judge labels (only ledger-valid experiment runs)
-    atasks, aruns, ajudg = agency_rows(v)
+    atasks, aruns, ajudg = agency_rows(None if all_versions else v)
     counts["bench/agency_tasks"] = _w(out / "bench" / "agency_tasks.jsonl", atasks)
     counts["runs/agency_trajectories"] = _w(out / "runs" / "agency_trajectories.jsonl", aruns)
     counts["labels/agency_judgments"] = _w(out / "labels" / "agency_judgments.jsonl", ajudg)
@@ -154,7 +160,7 @@ def build(version: str | None = None) -> dict:
                                "type": r["type_a"], "votes": r.get("votes", {}), "silver": r.get("silver"), "pipeline": r.get("verdict")})
     counts["labels/labels"] = _w(out / "labels" / "labels.jsonl", labels)
     for part in ("kg", "bench", "runs", "labels"):
-        (out / part / "README.md").write_text(_card(v, part, {k: n for k, n in counts.items() if k.startswith(part)}))
+        (out / part / "README.md").write_text(_card(v, part, {k: n for k, n in counts.items() if k.startswith(part)}, all_versions))
     return {"version": v, "out": str(out), "counts": counts,
             "datasets": {p: f"connected-frontiers-{p}" for p in ("kg", "bench", "runs", "labels")}}
 
@@ -168,22 +174,23 @@ def valid_experiment_dirs() -> list[Path]:
             and r["ts"] not in bad and Path(r["dir"]).exists()]
 
 
-def agency_rows(v: str) -> tuple[list, list, list]:
+def agency_rows(v: str | None) -> tuple[list, list, list]:
+    """Rows from ledger-valid agency runs; `v=None` keeps every KB version."""
     tasks, runs, judg, seen_t, seen_r = [], [], [], set(), set()
     for d in valid_experiment_dirs():
         exp = f"{d.parent.name}/{d.name}"
         for t in _r(d / "tasks.jsonl"):
-            if t.get("kb_version") == v and t["id"] not in seen_t:
+            if (v is None or t.get("kb_version") == v) and t["id"] not in seen_t:
                 seen_t.add(t["id"])
                 tasks.append(t)
         for r in _r(d / "runs.jsonl"):
             key = (r["task_id"], r["model"], r["condition"], r.get("run_id"))
-            if r.get("kb_version") == v and key not in seen_r:
+            if (v is None or r.get("kb_version") == v) and key not in seen_r:
                 seen_r.add(key)
                 runs.append({"experiment": exp, **{k: r.get(k) for k in (
                     "task_id", "persona", "stratum", "question", "model", "condition", "kb_version", "run_id", "plan",
                     "notes", "gates", "answer", "steps", "error", "metrics", "cost_usd", "latency_s")}})
-        if (d / "tasks.jsonl").exists() and any(t.get("kb_version") == v for t in _r(d / "tasks.jsonl")):
+        if (d / "tasks.jsonl").exists() and any(v is None or t.get("kb_version") == v for t in _r(d / "tasks.jsonl")):
             judg += [{"experiment": exp, "kind": "score", **r} for r in _r(d / "scores.jsonl")]
             judg += [{"experiment": exp, "kind": "pairwise", **r} for r in _r(d / "pairwise.jsonl")]
     return tasks, runs, judg
@@ -203,7 +210,7 @@ PURPOSE = {
 }
 
 
-def _card(v: str, part: str, counts: dict) -> str:
+def _card(v: str, part: str, counts: dict, all_versions: bool = False) -> str:
     files = {"kg": [("entities", "entities.jsonl"), ("edges", "edges.jsonl"), ("evidence", "evidence.jsonl"),
                     ("documents", "documents.jsonl"), ("chunk_index", "chunk_index.jsonl"), ("segments", "segments.jsonl"),
                     ("hierarchy", "hierarchy.jsonl")],
@@ -211,7 +218,10 @@ def _card(v: str, part: str, counts: dict) -> str:
              "runs": [("trajectories", "trajectories.jsonl"), ("session_trajectories", "session_trajectories.jsonl"),
                       ("agency_trajectories", "agency_trajectories.jsonl")],
              "labels": [("labels", "labels.jsonl"), ("agency_judgments", "agency_judgments.jsonl")]}[part]
-    configs = "\n".join(f"- config_name: {n}\n  data_files: {f}" for n, f in files)
+    nonempty = {k.split("/", 1)[1].removesuffix(".tsv") for k, n in counts.items() if n}
+    configs = "\n".join(f"- config_name: {n}\n  data_files: {f}" for n, f in files if n in nonempty)   # empty files break the viewer
+    scope = ("Graph files are KB `" + v + "`; tasks, runs and labels span every KB version, and each row's `kb_version` "
+             "says which graph its answer key or run belongs to.") if all_versions and part != "kg" else f"KB version `{v}`."
     rows = "\n".join(f"| {k} | {n:,} |" for k, n in counts.items())
     return f"""---
 license: cc-by-4.0
@@ -225,6 +235,8 @@ configs:
 
 {PURPOSE[part]}
 
+{scope}
+
 Part of the **Connected Frontiers** collection (kg · bench · runs · labels). Code, loaders and eval
 scripts: the GitHub repository (`cf kb pull <version>` installs the KB locally).
 
@@ -235,3 +247,33 @@ scripts: the GitHub repository (`cf kb pull <version>` installs the KB locally).
 **Licensing.** Annotations CC-BY-4.0 (proposed). Page text is not redistributed: quotes are ≤ 400
 chars plus URL, and passages are referenced by URL and offsets. **Canary:** `{CANARY}`.
 """
+
+
+NOTES = {"kg": "The graph: entities, typed edges with evidence status, short quotes + URLs, GraphRAG index.",
+         "bench": "Tasks pinned to KB versions: QA sessions with computed answer keys, persona agency tasks.",
+         "runs": "Agent trajectories: every tool call, findings with cited edges, answers, scores, cost.",
+         "labels": "Silver labels (4-judge votes) and LLM-judge scores and pairwise preferences."}
+
+
+def push_collection(r: dict, owner: str, title: str = "Connected Frontiers") -> dict:
+    """Upload each part as its own PRIVATE dataset repo `<owner>/connected-frontiers-<part>`, then group them in
+    one private collection. Never makes anything public; re-running updates the same repos and collection."""
+    from huggingface_hub import HfApi
+    api = HfApi()
+    repos = {}
+    for part, name in r["datasets"].items():
+        folder = Path(r["out"]) / part
+        if not any(folder.glob("*.jsonl")) and not any(folder.glob("*.tsv")):
+            continue
+        repo = f"{owner}/{name}"
+        api.create_repo(repo, repo_type="dataset", private=True, exist_ok=True)
+        api.update_repo_settings(repo, repo_type="dataset", private=True)      # keep private even if it existed
+        api.upload_folder(folder_path=str(folder), repo_id=repo, repo_type="dataset",
+                          commit_message=f"Connected Frontiers {r['version']}")
+        repos[part] = repo
+    col = api.create_collection(title, namespace=owner, private=True, exists_ok=True,
+                                description="A PageRank-guided, evidence-graded knowledge graph of the frontier AI "
+                                            "ecosystem, with agent tasks, trajectories and judge labels.")
+    for part, repo in repos.items():
+        api.add_collection_item(col.slug, repo, "dataset", note=NOTES[part], exists_ok=True)
+    return {"collection": f"https://huggingface.co/collections/{col.slug}", "repos": repos}
