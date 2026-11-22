@@ -265,3 +265,38 @@ defects, not a replacement for them. Which scorer is *right* needs human labels:
 filter removed "in the graph" but not "the graph shows", so the judges could see that phrase. It affects one task
 (`A-undergrad_capstone-00`, kg_agentic) in pilot 0103 and fit_dev 0106. That answer lost its comparisons (0.00), so
 the leak did not favour grounding; the judgements stand, flagged. `_blind` now rewrites it to "the evidence".
+
+### Use-case testbed v1 (2026-11-22): generated tasks, three trials, judges
+
+`cf usecases configs/experiments/usecases_v1.yaml` · run `eval/experiments/usecases_v1/20261122-1323` · $2.52 ·
+11 tasks generated from 7 use cases (49 candidates rejected by the curator or the leak check; research direction
+produced none: the graph's problem entities are too broad) · Inkling-2-small 3 trials, Qwen-35B 1 trial,
+Qwen-397B from memory · GLM-5.3 judges, persona + expert roles, both orders.
+
+| Inkling-2-small | retrieved | grounded | used | pass^3 (outcome) | pass on graph-needed tasks |
+|---|---|---|---|---|---|
+| memory | 0.00 | – | 0.05 | 0.18 | 0.00 (n=9) |
+| typical GraphRAG | 0.60 | – | 0.14 | 0.36 | 0.33 |
+| agentic v5 | 0.90 | 0.69 | **0.37 ± 0.03** | 0.45 | **0.67** |
+| memory-first v4 | 0.85 | 0.71 | 0.30 ± 0.02 | 0.45 | 0.44 |
+
+| Pairwise (GLM, persona + expert, both orders) | P(x preferred) [95% CI] | order-consistent |
+|---|---|---|
+| memory-first vs memory | **0.91 [0.75–1.00]** | 91% |
+| memory-first vs agentic | 0.86 [0.77–0.95] | 73% |
+| agentic vs memory | 0.50 [0.27–0.73] | 73% |
+| agentic vs typical GraphRAG | 0.48 [0.25–0.70] | 77% |
+| small memory-first vs **large** (397B) from memory | **0.98 [0.93–1.00]** | 95% |
+
+Reading:
+- **Grounding helps when it edits a good plan.** Memory-first vs memory is the cleanest comparison here: same draft,
+  only the graph's edits differ, and the judge said so ("the two answers are structurally identical... A is more
+  grounded and honest"). It was preferred on every use case (0.62-1.00), including learning a method (1.00).
+- **Grounding that rewrites the plan does not win on average.** Agentic retrieves and uses the most gold (0.37) and
+  passes most graph-needed tasks (0.67), but judges split 0.50 against memory: it wins hiring (1.00) and vendor choice
+  (0.88), loses method adoption (0.12) and base model (0.25), the same split as the pilot.
+- **A small grounded model beat a large one from memory** (H3, 0.98), via memory-first.
+- **Caveats:** one judge family (GLM) and 11 tasks; memory-first answers are 46% longer than memory answers
+  (4,924 vs 3,377 chars) and 83% longer than the 397B's, and length was not controlled in this run (the pilot found
+  no length bias); pass^3 = pass@1 for Qwen (one trial). Next: a second judge family, a length-matched check, and the
+  owner's blind review.

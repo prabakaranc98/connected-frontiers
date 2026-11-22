@@ -241,6 +241,17 @@ def experiment(cfg: str = typer.Argument(..., help="e.g. configs/experiments/age
 
 
 @app.command()
+def usecases(cfg: str = typer.Argument(..., help="e.g. configs/experiments/usecases_v1.yaml"),
+             generate_only: bool = typer.Option(False, help="only generate and write the task set (Examiner calls)")) -> None:
+    """Generate a task set from the use-case catalogue, answer it, score retrieval → grounding → use, judge, report."""
+    from cf.bench.usecases import run as run_usecases
+
+    res = run_usecases(cfg, generate_only)
+    console.print(res["report"])
+    console.print(f"[green]→ {res['dir']}[/]")
+
+
+@app.command()
 def checklist(exp_dir: str = typer.Argument(..., help="an experiment run folder, e.g. eval/experiments/agency_pilot/20261122-0103"),
               scorers: str = typer.Option("code,jev,llm:z-ai/glm-5.3,llm:nvidia/nemotron-3.5-super-vl",
                                           help="comma-separated: code · jev · llm:<model id>"),

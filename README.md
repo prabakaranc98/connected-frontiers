@@ -196,6 +196,21 @@ The full trajectories (plan, every tool call, findings with edge ids, advice, ju
 `cf experiment` to `eval/experiments/<name>/<stamp>/` and packaged by `cf release` as `runs/agency_trajectories`
 and `labels/agency_judgments` for the Hugging Face collection (pushed privately, on approval).
 
+### Generated use cases, three trials, judges (latest)
+
+`cf usecases` generates task sets from a use-case catalogue (customer stack, hiring, method adoption, vendor choice,
+base model, benchmark, learning a method), answers them under each condition and scores every stage. On 11 generated
+tasks ([details](docs/AGENCY_EVAL.md#use-case-testbed-v1-2026-11-22-generated-tasks-three-trials-judges)):
+
+| Comparison (GLM judge, both orders) | P(first preferred) [95% CI] |
+|---|---|
+| memory-first (draft from memory, edited with the graph) vs memory | **0.91 [0.75–1.00]** |
+| agentic (plan from the graph) vs memory | 0.50 [0.27–0.73] |
+| small model, memory-first vs 397B model from memory | **0.98 [0.93–1.00]** |
+
+Grounding helps most when it edits a good plan rather than replacing it. Caveats: one judge family, 11 tasks,
+memory-first answers are longer and length was not controlled in this run.
+
 ### Retrieval, grounding and use (agentic GraphRAG)
 
 On 6 hand-written questions, each condition is scored at three stages against question-aware gold facts

@@ -450,26 +450,63 @@ def _linked_block(kg: KG, question: str) -> str:
         if x["edges"] < 5 and (b := kg.broader(x["id"])):
             s_ += " — thin; broader: " + ", ".join(f"{y['name']} ({y['id']}, {y['edges']} edges)" for y in b)
         parts.append(s_)
-    return "\n\nEntities in the question found in the graph (start here): " + "; ".join(parts)
+    pats = [PATTERNS[t].format(id=x["id"]) for t in dict.fromkeys(x["type"] for x in L) if t in PATTERNS]
+    return ("\n\nEntities in the question found in the graph (start here): " + "; ".join(parts)
+            + ("\nUseful multi-hop queries for these (graph_query): " + " · ".join(pats) if pats else ""))
 
 
-def _facts(kg: KG, steps: list[dict], k: int = 30) -> list[dict]:
+# two-hop patterns per anchor type: the question types every agent was weakest on (retrieval 0.18-0.31 on
+# "who hires for X and what do they use?") need the second hop, which the agents rarely took on their own
+PATTERNS = {
+    "role": "who hires and what they use: start='{id}', path=[{{'relation':'hires_for','direction':'in','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+    "method": "who uses it and with which tools: start='{id}', path=[{{'relation':'uses_method','direction':'in','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+    "problem": "who works on it and how: start='{id}', path=[{{'relation':'works_on','direction':'in','type':'org'}},{{'relation':'uses_method','direction':'out'}}]",
+    "technology": "who uses it and what else they use: start='{id}', path=[{{'relation':'uses_tech','direction':'in','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+    "benchmark": "which models are measured on it and who makes them: start='{id}', path=[{{'relation':'measured_on','direction':'in','type':'model'}},{{'relation':'offers','direction':'in'}}]",
+    "model": "what is built on it: start='{id}', path=[{{'relation':'builds_on','direction':'in','type':'model'}}]",
+    "org": "its customers' stacks: start='{id}', path=[{{'relation':'serves','direction':'out','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+}
+_W = re.compile(r"[a-z0-9]+")
+_REL_WORDS = {"hires_for": {"hire", "hires", "hiring", "job", "jobs", "role", "roles", "career"},
+              "uses_tech": {"use", "uses", "stack", "tool", "tools", "systems", "infrastructure", "connect", "platform"},
+              "uses_method": {"method", "methods", "technique", "train", "training", "build", "approach"},
+              "measured_on": {"benchmark", "benchmarks", "evaluate", "evaluation", "baseline", "baselines", "measure"},
+              "builds_on": {"base", "fine-tune", "finetune", "derivative", "derivatives", "built"},
+              "offers": {"vendor", "vendors", "service", "offer", "offers", "product", "provider"},
+              "works_on": {"research", "direction", "problem", "working", "work"},
+              "serves": {"customer", "customers", "client", "clients"}}
+
+
+def _relevance(kg: KG, e: dict, words: set[str], linked: set[str]) -> float:
+    """How relevant a retrieved edge is to the question and plan: touches a question entity, relation named by the
+    question's words, entity names sharing words with it. Selection, not retrieval, was the bottleneck."""
+    r = 2.0 if (e["head"] in linked or e["tail"] in linked) else 0.0
+    r += 1.5 if words & _REL_WORDS.get(e["relation"], set()) else 0.0
+    names = set(_W.findall((kg.name(e["head"]) + " " + kg.name(e["tail"])).lower()))
+    return r + 0.5 * len(names & words)
+
+
+def _facts(kg: KG, steps: list[dict], k: int = 30, query: str = "") -> list[dict]:
     """Every edge the research touched, best supported first: status, then publishers, then strength. Handed to the
     notes step so facts retrieved early in a long loop are not lost (on Harvey the agent reached all 12 key
     neighbours and its notes used none)."""
     seen = {x for s_ in steps for x in s_.get("touched", {}).get("edges", []) if x in kg.edges}
     es = [kg.edges[x] for x in seen if kg.edges[x]["status"] != "unsupported"]
-    es.sort(key=lambda e: (-ST.index(e["status"]), -len({v.get("publisher") for v in e.get("evidence") or []}), -e["strength"]))
+    words = set(_W.findall(query.lower())) - {"the", "and", "for", "what", "which", "with", "should", "would"}
+    linked = {x["id"] for x in kg.link(query)} if query else set()
+    linked |= {t for x in list(linked) for t in kg.twins(x)}
+    es.sort(key=lambda e: (-_relevance(kg, e, words, linked) if query else 0, -ST.index(e["status"]),
+                           -len({v.get("publisher") for v in e.get("evidence") or []}), -e["strength"]))
     return es[:k]
 
 
-def _facts_block(kg: KG, steps: list[dict], k: int = 30) -> str:
-    es = _facts(kg, steps, k)
+def _facts_block(kg: KG, steps: list[dict], k: int = 30, query: str = "") -> str:
+    es = _facts(kg, steps, k, query)
     if not es:
         return ""
     lines = [f"- [{e['id']}] {kg.name(e['head'])} {e['relation'].replace('_', ' ')} {kg.name(e['tail'])} "
              f"({e['status']}, {len({v.get('publisher') for v in e.get('evidence') or []})} publisher(s))" for e in es]
-    return ("\n\nFacts you retrieved, best supported first (use the ones that matter for this person; cite their ids):\n"
+    return ("\n\nFacts you retrieved, most relevant to the question first (use the ones that matter for this person; cite their ids):\n"
             + "\n".join(lines))
 
 
@@ -490,7 +527,7 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
             {"role": "user", "content": task["question"]}]
     steps: list[dict] = []
     err, plan, notes, answer, prose, gates = None, [], [], None, "", {"read_gate": False, "reflection": [], "revised": False}
-    notes_prompt = lambda: NOTES + ("" if "facts" in off else _facts_block(kg, steps)) + "\n" + NOT_COVERED
+    notes_prompt = lambda: NOTES + ("" if "facts" in off else _facts_block(kg, steps, query=task["question"] + " " + " ".join(plan))) + "\n" + NOT_COVERED
     try:
         if "plan" not in off:
             m, _ = llm.chat(msgs + [{"role": "user", "content": PLAN}], name="guidance_agentic_plan", max_tokens=800,
@@ -626,7 +663,7 @@ def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14)
         msgs.append({"role": "user", "content": ENRICH_RESEARCH + "\n\nItems:\n" +
                      "\n".join(f"{i + 1}. [{c['kind']}] {c['claim']} → look up: {c['lookup']}" for i, c in enumerate(checks))})
         prose = _tool_loop(llm, msgs, kg, steps, max_steps, "guidance_enrich_research", AGENT_SPECS)
-        np_ = NOTES + _facts_block(kg, steps) + "\n" + NOT_COVERED
+        np_ = NOTES + _facts_block(kg, steps, query=task["question"] + " " + " ".join(c.get("claim", "") for c in checks)) + "\n" + NOT_COVERED
         notes = _structured(llm, msgs + [{"role": "user", "content": np_}], Notes, "guidance_enrich_notes").get("findings", [])[:10]
         msgs += [{"role": "user", "content": np_}, {"role": "assistant", "content": json.dumps({"findings": notes})},
                  {"role": "user", "content": "The draft again:\n" + _blind(d) + "\n\n" + ENRICH}]

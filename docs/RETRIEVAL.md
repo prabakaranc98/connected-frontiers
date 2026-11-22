@@ -82,6 +82,11 @@ What this says:
 6. **"Used" has a ceiling.** An answer names at most about 20 items (6 topics, 3 projects × 6 tools, 8 stack), while
    gold sets have 22-39 entities, so 1.0 is not reachable; compare conditions, not absolute values.
 
+### Generated task set (11 tasks, 3 trials): see [AGENCY_EVAL.md](AGENCY_EVAL.md#use-case-testbed-v1-2026-11-22-generated-tasks-three-trials-judges)
+
+With relevance-ranked facts and two-hop patterns (agentic v5), Inkling-2-small retrieved 0.90 of the gold, grounded
+0.69 and used 0.37 ± 0.03 across three trials; typical GraphRAG used 0.14.
+
 ## 5. Next
 
 - 3 trials per cell and the 16-task set, so differences are measurable; report intervals.
@@ -93,6 +98,62 @@ What this says:
   query time; review the 24 same-type pairs with the same normalised name (Scale / Scale AI, Meta / Meta AI,
   Fermilab / fermilab.ai) by hand, since some are different organisations.
 - Judges: pairwise preference on these answers, to check that more grounded facts make better advice.
+
+## 6. Practice from the field, mapped to this system
+
+Collected 2026-11-22 from fetched primary sources (Anthropic, OpenAI and LangChain engineering guidance, Chroma's
+context-rot report, and recent benchmark-generation papers; for arXiv papers only the abstracts were read). Status:
+**adopted** = in the code now · **partly** · **planned**.
+
+| # | Recommendation | Component | Status | Sources |
+|---|---|---|---|---|
+| 1 | Merge overlapping tools, namespace them, build for workflows not endpoints (`neighbors` / `graph_query` / `ppr` / `top` overlap) | tools | planned | [A2, A3, A5] |
+| 2 | Let the agent choose response size (concise vs detailed), paginate, say how to narrow a truncated result | tools | partly (truncation notices, limits) | [A2] |
+| 3 | Errors that teach: say what was wrong and show a valid call | tools | partly (empty-result hints, thin-node `broader`) | [A1, A2] |
+| 4 | Clear raw tool output once it is in the notes; keep plan and notes outside the history; compact long runs | context | partly (retrieved facts handed to notes) | [A3, A4, A6] |
+| 5 | Less context, ordered by relevance: only facts that matter go into synthesis | context | adopted (relevance-ranked fact list) | [A6, A7] |
+| 6 | Scale effort to the question: short path for lookups, full phases for hard questions; broad searches first | harness | planned | [A1, A4] |
+| 7 | Explicit stopping rule (coverage complete or hard cap); citation check as a separate pass | harness | partly (coverage reflection, step caps) | [A4, A5] |
+| 8 | Drop or flag tasks a closed-book solver already answers, and single-hop "cheatable" ones | curator | adopted as a flag (memory-answerable tasks reported separately) | [B7, B8] |
+| 9 | Tag difficulty (hops, query-evidence distance); keep the gold path as a reference solution; include "insufficient evidence" tasks | curator, gold | partly (hops tag, gold path stored) | [B1, B6] |
+| 10 | Steer generation to where models fail; graduate saturated templates to regression; keep a held-out split | autopilot | planned | [A2, B1, B3] |
+| 11 | Grade the outcome for pass/fail; use path metrics to diagnose; report pass^k | metrics | adopted (outcome pass, pass@k, pass^k; stages as diagnosis) | [B1, B5] |
+| 12 | Calibrate judges on human labels, allow "unknown", reason first, control length; judge family ≠ solver family | judges | partly (families separated, rationale first, length checked; human labels pending) | [B1, B2, B9] |
+
+Tensions the sources leave open: one holistic judge vs one judge per dimension [A4 vs B1]; seven fixed phases vs
+"start simple" and effort scaling [A1, A4]; stage metrics grade the path, which [B1] warns against for pass/fail (here
+they only diagnose); a closed-book filter removes the best-known entities, which are often the most useful tasks
+[B3, B8], so memory-answerable tasks are flagged, not dropped.
+
+### Autopilot: how the testbed runs end to end
+
+    catalogue (use cases) ─▶ generate: sample anchors (rich/thin) ─▶ Examiner: intent-aware check + persona rewrite
+        ─▶ leak check + generic-name filter ─▶ gold from the graph (hops tagged)
+        ─▶ answer: every condition × model × trial (cached) ─▶ score: stages · outcome pass@k/pass^k · checklist · judges
+        ─▶ report per use case ─▶ diagnose (where retrieval/use fails) ─▶ fix the harness or tools
+        ─▶ confirm on a held-out task set the loop never tuned on
+
+`cf usecases <config>` runs it; `cf meta` is the same loop for the QA sessions, with an LLM proposer and held-out
+confirmation. Adding a use case is a catalogue entry (`configs/usecases.yaml`), not code.
+
+### Sources for §6
+
+- [A1] Anthropic, *Building effective agents*, 2024. https://www.anthropic.com/engineering/building-effective-agents
+- [A2] Anthropic, *Writing effective tools for agents — with agents*, 2025. https://www.anthropic.com/engineering/writing-tools-for-agents
+- [A3] Anthropic, *Effective context engineering for AI agents*, 2025. https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- [A4] Anthropic, *How we built our multi-agent research system*, 2025. https://www.anthropic.com/engineering/multi-agent-research-system
+- [A5] OpenAI, *A practical guide to building agents*. https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf
+- [A6] LangChain, *Context Engineering*, 2025. https://www.langchain.com/blog/context-engineering-for-agents
+- [A7] Hong, Troynikov, Huber (Chroma), *Context Rot: How Increasing Input Tokens Impacts LLM Performance*, 2025. https://www.trychroma.com/research/context-rot
+- [B1] Anthropic, *Demystifying evals for AI agents*, 2026. https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+- [B2] OpenAI, *Evaluation best practices*. https://developers.openai.com/api/docs/guides/evaluation-best-practices
+- [B3] Li et al., *AutoBencher: Towards Declarative Benchmark Construction*, ICLR 2025. [arXiv:2407.08351](https://arxiv.org/abs/2407.08351)
+- [B4] Yuan et al., *LLM-Powered Benchmark Factory: Reliable, Generic, and Efficient*, 2025. [arXiv:2502.01683](https://arxiv.org/abs/2502.01683)
+- [B5] *Establishing Best Practices for Building Rigorous Agentic Benchmarks*, 2025. [arXiv:2507.02825](https://arxiv.org/abs/2507.02825) (seen via search only: unverified)
+- [B6] Lee, Kwon, Jin, *GRADE: multi-hop QA and fine-grained difficulty matrix for RAG evaluation*, EMNLP 2025 Findings. [arXiv:2508.16994](https://arxiv.org/abs/2508.16994)
+- [B7] Liu et al., *Investigating RAG Systems on Unanswerable, Uncheatable, Realistic, Multi-hop Queries*, ECIR 2026. [arXiv:2510.11956](https://arxiv.org/abs/2510.11956)
+- [B8] Liu et al., *Generating Leakage-Free Benchmarks for Robust RAG Evaluation*, 2026. [arXiv:2605.08838](https://arxiv.org/abs/2605.08838)
+- [B9] Panickssery, Bowman, Feng, *LLM Evaluators Recognize and Favor Their Own Generations*, 2024. [arXiv:2404.13076](https://arxiv.org/abs/2404.13076)
 
 ## References
 

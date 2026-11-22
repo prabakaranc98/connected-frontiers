@@ -33,8 +33,8 @@ from cf.llm.client import AUTO, LLM, BudgetExceeded
 
 OUT = config.EVAL / "experiments"
 CACHE = config.EVAL / "cache" / "agency"
-HARNESS_VERSION = "agentic-v4"            # bump when run_agentic's prompts or gates change (invalidates the cache)
-ENRICH_VERSION = "enrich-v3"
+HARNESS_VERSION = "agentic-v5"            # bump when run_agentic's prompts or gates change (invalidates the cache)
+ENRICH_VERSION = "enrich-v4"
 RAG_VERSION = "rag-v1"              # same, for run_enrich (memory-first, graph-enriched)
 
 
@@ -145,18 +145,21 @@ def curate(cands: list[dict], per_persona: int, rich: int, examiner: str = G.EXA
 
 
 # ---- 2 · answers, cached ------------------------------------------------------------------------------
-def _key(task: dict, model: str, condition: str) -> str:
-    h = hashlib.sha256(json.dumps([task["question"], task["kb_version"], model, condition,
+def _key(task: dict, model: str, condition: str, trial: int = 0) -> str:
+    extra = [trial] if trial else []                    # trial 0 keeps the keys of every earlier cached answer
+    h = hashlib.sha256(json.dumps([task["question"], task["kb_version"], model, condition, *extra,
                                    HARNESS_VERSION if condition.startswith("kg_agentic") else
                                    ENRICH_VERSION if condition == "kg_enrich" else
                                    RAG_VERSION if condition == "kg_rag" else ""]).encode()).hexdigest()[:24]
     return h
 
 
-def answer(task: dict, model: str, condition: str, kg: KG) -> dict:
-    f = CACHE / f"{_key(task, model, condition)}.json"
+def answer(task: dict, model: str, condition: str, kg: KG, trial: int = 0) -> dict:
+    """Cached by (question, KB, model, condition, harness version, trial). kg_enrich revises trial 0's closed-book
+    answer of the same trial index, so each trial pairs a draft with its own revision."""
+    f = CACHE / f"{_key(task, model, condition, trial)}.json"
     if f.exists():
-        return {**json.loads(f.read_text()), "cached": True}
+        return {**json.loads(f.read_text()), "cached": True, "trial": trial}
     t = {**task, "persona": task["persona"], "profile": personas()[task["persona"]]}
     if condition.startswith("kg_agentic"):     # "kg_agentic+fit:read" = fit-first on, evidence gate off
         head, _, offs = condition.partition(":")
@@ -166,12 +169,13 @@ def answer(task: dict, model: str, condition: str, kg: KG) -> dict:
     elif condition == "kg_rag":                # typical RAG: one retrieval pass, context in the prompt
         r = G.run_rag(model, t, kg)
     elif condition == "kg_enrich":             # memory-first: revise this model's own (cached) closed-book answer
-        draft = answer(task, model, "closed_book", kg)
+        draft = answer(task, model, "closed_book", kg, trial)
         if not draft.get("answer"):
             return {**draft, "condition": condition, "error": f"no draft: {draft.get('error')}"}
         r = G.run_enrich(model, t, kg, draft)
     else:
         r = G.run(model, t, condition, kg)
+    r["trial"] = trial
     if r.get("answer"):
         CACHE.mkdir(parents=True, exist_ok=True)
         f.write_text(json.dumps(r, ensure_ascii=False, default=str))
