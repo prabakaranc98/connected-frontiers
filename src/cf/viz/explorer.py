@@ -176,7 +176,7 @@ a{color:#3b6fd8}ul{padding-left:18px;margin:4px 0}
 @media (max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto 65vh auto;height:auto;overflow:auto}#wrap{height:65vh}aside{border:none}}
 </style></head><body>
 <aside>
-  <h1>Connected Frontiers</h1><div class="muted">__SUBTITLE__</div><div class="muted" style="margin-top:4px"><a href="/">crawl monitor →</a></div>
+  <h1>Connected Frontiers</h1><div class="muted">__SUBTITLE__</div>__LINKS__
   <h2>Shown</h2><div class="stat"><div><b id="nN">–</b>entities</div><div><b id="nE">–</b>edges</div><div><b id="nC">–</b>segments</div></div>
   <h2>Search</h2><input type="search" id="q" list="names" placeholder="entity name… (Enter to focus)"><datalist id="names"></datalist>
   <h2>Map</h2>
@@ -597,12 +597,26 @@ runLayout(()=>{ updateShown(); renderer.refresh(); route() });
 </script></body></html>"""
 
 
-def write_explorer(graph: dict, path: Path, subtitle: str = "") -> Path:
+REPO = "https://github.com/prabakaranc98/connected-frontiers"
+
+
+def _links(static: bool) -> str:
+    if not static:
+        return '<div class="muted" style="margin-top:4px"><a href="/">crawl monitor →</a></div>'
+    return (f'<div class="muted" style="margin-top:6px;line-height:1.5">A knowledge graph of the frontier-AI ecosystem, '
+            f'built by a PageRank-guided crawler; every edge keeps its quote and source. '
+            f'<b>Status</b> = evidence, not truth: <i>claimed</i> (one source) → <i>confirmed</i> (the other party) → '
+            f'<i>corroborated</i> (independent sources) → <i>verified</i> (primary registry). '
+            f'<a href="{REPO}" target="_blank" rel="noopener">code, method and evaluation →</a></div>')
+
+
+def write_explorer(graph: dict, path: Path, subtitle: str = "", static: bool = False) -> Path:
+    """static=True: the public build (no local crawl-monitor link; adds an about line and the repo link)."""
     if graph["entities"] and "x" not in graph["entities"][0]:
         compute_layout(graph)
     graph = {**graph, "segment_map": segment_map(graph)}
     data = json.dumps(graph, ensure_ascii=False).replace("</", "<\\/")
-    html = (TEMPLATE.replace("__DATA__", data).replace("__SUBTITLE__", subtitle)
+    html = (TEMPLATE.replace("__DATA__", data).replace("__SUBTITLE__", subtitle).replace("__LINKS__", _links(static))
             .replace("__PALETTE__", json.dumps(PALETTE)))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html)

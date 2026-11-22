@@ -412,6 +412,8 @@ def crawl(seeds: list[dict], budget: int, policy: str = "ppr", batch: int = 40, 
 def _safe(page, ex, ve):
     try:
         return extract_verify(page, ex, ve)
+    except BudgetExceeded:
+        raise                                   # stop the crawl; never mark pages as failed for a dead key
     except RuntimeError as e:
         console.print(f"[red]extract failed {page.url}: {str(e)[:90]}[/]")
         return None

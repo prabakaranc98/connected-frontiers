@@ -1,0 +1,16 @@
+# Main run: all personas, small vs large, three conditions (H1-H5 in docs/AGENCY_EVAL.md). Run only after the pilot's judges pass.
+name: agency_v1
+tasks: {personas: [undergrad_capstone, masters_thesis, phd_first_year, career_switcher, junior_ml_engineer, senior_research_engineer, applied_ml_startup, forward_deployed], per_persona: 2, rich: 1, seed: 17}
+models: [thinkingmachines/inkling-2-small, qwen/qwen3.5-35b-a3b, qwen/qwen3.5-397b-a17b]
+conditions: [closed_book, kg_tools, kg_agentic]
+judges: {models: [z-ai/glm-5.3, nvidia/nemotron-3.5-super-vl], roles: [persona, expert]}
+validate_judges: true
+unit_test_answers: 4
+comparisons:
+  - {name: "H1 inkling: agentic vs memory", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: "H1 qwen-35b: agentic vs memory", x: {model: qwen/qwen3.5-35b-a3b, condition: kg_agentic}, y: {model: qwen/qwen3.5-35b-a3b, condition: closed_book}}
+  - {name: "H1 qwen-397b: agentic vs memory", x: {model: qwen/qwen3.5-397b-a17b, condition: kg_agentic}, y: {model: qwen/qwen3.5-397b-a17b, condition: closed_book}}
+  - {name: "H2 inkling: agentic vs plain tools", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: kg_tools}}
+  - {name: "H3 qwen-35b agentic vs qwen-397b memory", x: {model: qwen/qwen3.5-35b-a3b, condition: kg_agentic}, y: {model: qwen/qwen3.5-397b-a17b, condition: closed_book}}
+  - {name: "H3 inkling agentic vs qwen-397b memory", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: qwen/qwen3.5-397b-a17b, condition: closed_book}}
+workers: 6

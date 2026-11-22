@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Three engineering questions answered from the Connected Frontiers graph: student, research engineer, forward-deployed engineer</title>
+<defs><filter id="sh" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="2" stdDeviation="7" flood-color="#0F172A" flood-opacity="0.07"/></filter></defs>
+<rect width="1080" height="1350" fill="#F8FAFC"/>
+<text x="60" y="78" font-size="14" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.14em">CASE STUDY · CONNECTED FRONTIERS · FOR ENGINEERS</text>
+<text x="60" y="128" font-size="38" font-weight="700" fill="#0F172A" text-anchor="start">Three engineering questions, answered from a graph</text>
+<text x="60" y="164" font-size="17" font-weight="400" fill="#475569" text-anchor="start">A small open model (Inkling-2-small) walked the knowledge graph with tools and cited every edge it used.</text>
+<text x="60" y="188" font-size="17" font-weight="400" fill="#475569" text-anchor="start">Each edge keeps its source quote and an evidence status: claimed, confirmed, corroborated or verified.</text>
+<rect x="60" y="222" width="960" height="330" rx="18" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#sh)"/>
+<rect x="60" y="246" width="5" height="282" rx="2.5" fill="#059669"/>
+<text x="96" y="266" font-size="13" font-weight="700" fill="#059669" text-anchor="start" letter-spacing="0.12em">STUDENT · WHAT AI WORK LOOKS LIKE INSIDE A PRODUCT COMPANY</text>
+<text x="96" y="294" font-size="16.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">“Which roles is Figma hiring for around AI?”</text>
+<text x="96" y="336" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">Figma lists 7 AI roles across research,</text>
+<text x="96" y="366" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">evaluation, design, engineering, product, sales.</text>
+<text x="96" y="412" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Figma —hires_for→ Researcher, AI Evaluations</text>
+<rect x="487.6" y="397" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="522.8000000000001" y="413" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="434" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">figma.com careers page</text>
+<text x="96" y="468" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Figma —hires_for→ Product Designer, AI Models</text>
+<rect x="496.0" y="453" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="531.2" y="469" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="490" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">figma.com careers page · also: AI Applied Scientist, Software Engineer - AI Platforms</text>
+<text x="96" y="526" font-size="15" font-weight="600" fill="#059669" text-anchor="start">Why it matters: AI work here spans evaluation, design and platform, not only research.</text>
+<text x="800" y="394" font-size="11" font-weight="700" fill="#475569" text-anchor="start" letter-spacing="0.1em">ROLES BY FUNCTION</text>
+<text x="800" y="420" font-size="12.5" font-weight="600" fill="#0F172A" text-anchor="start">Research</text>
+<rect x="912" y="407" width="68" height="16" rx="4" fill="#059669" fill-opacity="0.8"/>
+<text x="988" y="420" font-size="12.5" font-weight="700" fill="#475569" text-anchor="start">2</text>
+<text x="800" y="446" font-size="12.5" font-weight="600" fill="#0F172A" text-anchor="start">Engineering</text>
+<rect x="912" y="433" width="68" height="16" rx="4" fill="#059669" fill-opacity="0.8"/>
+<text x="988" y="446" font-size="12.5" font-weight="700" fill="#475569" text-anchor="start">2</text>
+<text x="800" y="472" font-size="12.5" font-weight="600" fill="#0F172A" text-anchor="start">Product, design</text>
+<rect x="912" y="459" width="68" height="16" rx="4" fill="#059669" fill-opacity="0.8"/>
+<text x="988" y="472" font-size="12.5" font-weight="700" fill="#475569" text-anchor="start">2</text>
+<text x="800" y="498" font-size="12.5" font-weight="600" fill="#0F172A" text-anchor="start">Sales</text>
+<rect x="912" y="485" width="34" height="16" rx="4" fill="#059669" fill-opacity="0.8"/>
+<text x="954" y="498" font-size="12.5" font-weight="700" fill="#475569" text-anchor="start">1</text>
+<rect x="60" y="572" width="960" height="330" rx="18" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#sh)"/>
+<rect x="60" y="596" width="5" height="282" rx="2.5" fill="#7C3AED"/>
+<text x="96" y="616" font-size="13" font-weight="700" fill="#7C3AED" text-anchor="start" letter-spacing="0.12em">RESEARCH ENGINEER · LEARN A METHOD FROM PRACTICE</text>
+<text x="96" y="644" font-size="16.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">“What is fine-tuning related to, and which organisations use it in practice?”</text>
+<text x="96" y="686" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">Four variants of fine-tuning in the graph, and</text>
+<text x="96" y="716" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">14 organisations using it, each with a source.</text>
+<text x="96" y="762" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Notion —uses_method→ fine-tuning</text>
+<rect x="386.8" y="747" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="422.0" y="763" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="784" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">fireworks.ai: “By partnering with Fireworks to fine-tune models, we reduced latency…”</text>
+<text x="96" y="818" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Thinking Machines Lab —uses_method→ fine-tuning</text>
+<rect x="512.8" y="803" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="548.0" y="819" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="840" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">thinkingmachines.ai: “tools that enable everyone to fine-tune models” · missed: reinforcement fine-tuning</text>
+<text x="96" y="876" font-size="15" font-weight="600" fill="#7C3AED" text-anchor="start">Why it matters: sourced variants and real users beat a survey as a reading list.</text>
+<rect x="839" y="730" width="112" height="28" rx="8" fill="#7C3AED" fill-opacity="0.12" stroke="#7C3AED" stroke-width="1.4"/>
+<text x="895" y="749" font-size="13" font-weight="700" fill="#7C3AED" text-anchor="middle">fine-tuning</text>
+<path d="M895 758 L837 781" stroke="#94A3B8" stroke-width="1.2" fill="none"/>
+<rect x="783" y="781" width="108" height="24" rx="12" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.1"/>
+<text x="837" y="798" font-size="11.5" font-weight="700" fill="#0F172A" text-anchor="middle">SFT</text>
+<path d="M895 758 L953 781" stroke="#94A3B8" stroke-width="1.2" fill="none"/>
+<rect x="899" y="781" width="108" height="24" rx="12" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.1"/>
+<text x="953" y="798" font-size="11.5" font-weight="700" fill="#0F172A" text-anchor="middle">full</text>
+<path d="M895 758 L837 813" stroke="#94A3B8" stroke-width="1.2" fill="none"/>
+<rect x="783" y="813" width="108" height="24" rx="12" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.1"/>
+<text x="837" y="830" font-size="11.5" font-weight="700" fill="#0F172A" text-anchor="middle">full-parameter</text>
+<path d="M895 758 L953 813" stroke="#94A3B8" stroke-width="1.2" fill="none"/>
+<rect x="899" y="813" width="108" height="24" rx="12" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.1"/>
+<text x="953" y="830" font-size="11.5" font-weight="700" fill="#0F172A" text-anchor="middle">language-model</text>
+<text x="895" y="860" font-size="12.5" font-weight="700" fill="#475569" text-anchor="middle">+ 14 organisations use it</text>
+<rect x="60" y="922" width="960" height="330" rx="18" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#sh)"/>
+<rect x="60" y="946" width="5" height="282" rx="2.5" fill="#2563EB"/>
+<text x="96" y="966" font-size="13" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.12em">FORWARD-DEPLOYED ENGINEER · KNOW THE CUSTOMER’S STACK</text>
+<text x="96" y="994" font-size="16.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">“Who works on autonomous driving, and which methods and technologies do they rely on?”</text>
+<text x="96" y="1036" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">Woven runs PyTorch with Hydra configs on</text>
+<text x="96" y="1066" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">on-prem DGX plus AWS, tracked in W&amp;B.</text>
+<text x="96" y="1112" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Woven —uses_tech→ DGX, AWS EC2, SageMaker</text>
+<rect x="462.40000000000003" y="1097" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="497.6" y="1113" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="1134" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">wandb.ai: “on-prem (DGX) … cloud (AWS EC2 and SageMaker) infrastructure”</text>
+<text x="96" y="1168" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Woven —uses_method→ autolabeling</text>
+<rect x="386.8" y="1153" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="422.0" y="1169" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="1190" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">wandb.ai: “Autolabeling and dataset queries during the data curation workflow”</text>
+<text x="96" y="1226" font-size="15" font-weight="600" fill="#2563EB" text-anchor="start">Why it matters: knowing a customer’s tools, data workflow and infrastructure split before day one.</text>
+<rect x="790" y="1086" width="210" height="26" rx="6" fill="#2563EB" fill-opacity="0.06" stroke="#2563EB" stroke-opacity="0.4"/>
+<text x="800" y="1103" font-size="10.5" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.08em">TRACKING</text>
+<text x="990" y="1103" font-size="12" font-weight="600" fill="#0F172A" text-anchor="end">Weights &amp; Biases</text>
+<rect x="790" y="1118" width="210" height="26" rx="6" fill="#2563EB" fill-opacity="0.11" stroke="#2563EB" stroke-opacity="0.4"/>
+<text x="800" y="1135" font-size="10.5" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.08em">FRAMEWORK</text>
+<text x="990" y="1135" font-size="12" font-weight="600" fill="#0F172A" text-anchor="end">PyTorch + Hydra</text>
+<rect x="790" y="1150" width="210" height="26" rx="6" fill="#2563EB" fill-opacity="0.16" stroke="#2563EB" stroke-opacity="0.4"/>
+<text x="800" y="1167" font-size="10.5" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.08em">DATA</text>
+<text x="990" y="1167" font-size="12" font-weight="600" fill="#0F172A" text-anchor="end">autolabeling</text>
+<rect x="790" y="1182" width="210" height="26" rx="6" fill="#2563EB" fill-opacity="0.21000000000000002" stroke="#2563EB" stroke-opacity="0.4"/>
+<text x="800" y="1199" font-size="10.5" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.08em">COMPUTE</text>
+<text x="990" y="1199" font-size="12" font-weight="600" fill="#0F172A" text-anchor="end">DGX + AWS</text>
+<text x="60" y="1290" font-size="14.5" font-weight="700" fill="#0F172A" text-anchor="start">On 14 held-out sessions: 0.94 answer F1 with the graph, 0.10 from memory · Inkling-2-small · harness h3</text>
+<text x="60" y="1314" font-size="13" font-weight="400" fill="#475569" text-anchor="start">Findings are what the graph holds, not audited facts.   Explore: pracha.me/connected-frontiers   ·   Code: github.com/prabakaranc98/connected-frontiers</text>
+</svg>

@@ -22,3 +22,11 @@ def test_structure_ignores_unsupported_edges():
     st = S._structure(_g())
     assert st["largest_component_share"] == 0.75 and st["isolated_share"] == 0.25
     assert S._signed(0.123) == "+0.12" and S._signed(None) == "–"
+
+
+def test_session_report_keeps_harness_specs_apart():
+    from cf.bench.session_report import per_session
+    row = lambda h, sc: {"model": "m/x", "condition": "kg_tools", "harness": h, "session_id": "s1", "template": "t",
+                         "mean_score": sc, "turn_scores": [sc], "turns": [], "steps": [], "cost_usd": 0}
+    ps = per_session([row("h0", 0.5), row("h3", 0.9)])
+    assert set(ps) == {("x", "kg_tools"), ("x", "kg_tools@h3")}

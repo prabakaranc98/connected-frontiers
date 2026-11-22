@@ -5,6 +5,8 @@
 > skills. It is **built the PageRank way** by a rank-guided crawler, and **explained** by a reasoner
 > that cites its evidence.
 
+**▶ Explore it:** [pracha.me/connected-frontiers](https://pracha.me/connected-frontiers/) (interim KB, crawl in progress; click an entity to explore its connections and evidence).
+
 **Status (2026-11-21):** v0.1, mid-crawl. Three roles run end to end: the Constructor builds a
 versioned KB, the Examiner builds and gates multi-turn tasks from it, the Reasoner answers them in
 five retrieval modes, and a per-KB scorecard measures truth, coverage, usefulness and cost.

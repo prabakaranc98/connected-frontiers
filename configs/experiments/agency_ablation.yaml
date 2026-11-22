@@ -1,0 +1,14 @@
+# Harness ablation: which part of the agentic harness carries the gain? Each condition switches one part off.
+name: agency_ablation
+tasks: {personas: [undergrad_capstone, masters_thesis, senior_research_engineer, forward_deployed], per_persona: 2, rich: 2, seed: 13}
+models: [thinkingmachines/inkling-2-small]
+conditions: [kg_agentic, "kg_agentic:plan", "kg_agentic:read", "kg_agentic:reflect", "kg_agentic:revise", "kg_agentic:notes"]
+judges: {models: [z-ai/glm-5.3, nvidia/nemotron-3.5-super-vl], roles: [persona, expert]}
+validate_judges: false            # validated in the pilot
+comparisons:
+  - {name: "full vs no plan", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic:plan"}}
+  - {name: "full vs no evidence gate", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic:read"}}
+  - {name: "full vs no reflection", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic:reflect"}}
+  - {name: "full vs no synthesis check", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic:revise"}}
+  - {name: "full vs no notes", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic:notes"}}
+workers: 6

@@ -77,7 +77,7 @@ def build(seeds: list[dict], er_model: str | None, workers: int = 6) -> dict:
                            "rejected": sum(1 for v in verdicts if v is not None and not v.entailed),
                            "unchecked": sum(1 for v in verdicts if v is None)})
     from cf.adapters.hf import all_rows as hf_rows
-    hf = hf_rows()
+    hf = hf_rows(gb.entities)
     hf_added = gb.add_structured(hf, publisher="huggingface.co", adapter="hf-hub-v0") if hf else 0
     timings["adapters_rows"] = len(hf)
     timings["adapters_new_edges"] = hf_added

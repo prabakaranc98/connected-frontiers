@@ -130,6 +130,8 @@ class LLM:
                     continue
                 if r.status_code >= 400:
                     trace.llm_call(name, self.model, body, None, time.time() - t_call, error=r.text[:300])
+                    if r.status_code in (401, 402, 403) and ("limit" in r.text.lower() or "credit" in r.text.lower()):
+                        raise BudgetExceeded(f"provider key limit or credits exhausted: {r.text[:200]}")   # stop, never score as 0
                     raise RuntimeError(f"HTTP {r.status_code} from {self.model}: {r.text[:300]}")
                 data = r.json()
                 trace.llm_call(name, self.model, body, data, time.time() - t_call)
@@ -188,6 +190,8 @@ class LLM:
                     continue
                 if r.status_code >= 400:
                     trace.llm_call(name, self.model, body, None, time.time() - t_call, error=r.text[:300])
+                    if r.status_code in (401, 402, 403) and ("limit" in r.text.lower() or "credit" in r.text.lower()):
+                        raise BudgetExceeded(f"provider key limit or credits exhausted: {r.text[:200]}")   # stop, never score as 0
                     raise RuntimeError(f"HTTP {r.status_code} from {self.model}: {r.text[:300]}")
                 data = r.json()
                 trace.llm_call(name, self.model, body, data, time.time() - t_call)

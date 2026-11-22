@@ -22,7 +22,8 @@ def per_session(rows: list[dict]) -> dict:
     """(model, mode) → session_id → metrics averaged over trials (+ pass^k across trials)."""
     by = defaultdict(lambda: defaultdict(list))
     for r in rows:
-        by[(r["model"].split("/")[-1], r["condition"])][r["session_id"]].append(r)
+        mode = r["condition"] if r.get("harness") in (None, "h0") else f"{r['condition']}@{r['harness']}"   # never pool specs
+        by[(r["model"].split("/")[-1], mode)][r["session_id"]].append(r)
     out = {}
     for cell, sess in by.items():
         out[cell] = {}

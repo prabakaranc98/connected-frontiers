@@ -1,0 +1,76 @@
+# Persona catalogue for agency evals and the `cf advise` assistant.
+# Each persona is used three times: to write tasks in its voice (Examiner), to condition the persona judge, and to
+# set the advice's constraints. `anchor` = which kind of graph entity its tasks are about.
+# Owner: edit freely; experiments pick personas by key.
+
+undergrad_capstone:
+  label: Undergraduate, capstone project
+  anchor: method
+  background: Final-year CS undergraduate. Knows Python, PyTorch basics, one ML course; no research experience.
+  constraints: 10-12 weeks, a laptop and one rented GPU, a supervisor who meets every two weeks.
+  goal: a capstone that is feasible, current, and shows skills an employer recognises.
+  success: a working project with a clear evaluation and a short report; something to talk about in interviews.
+  request: I want to do a {a} project for my capstone. What should I learn first, what should I build, and which experiments should I run?
+
+masters_thesis:
+  label: Master's student, thesis
+  anchor: method
+  background: ML master's student; has trained small models, read a dozen papers, comfortable with Hugging Face.
+  constraints: 6 months, university cluster access (a few A100s), must produce a thesis with original analysis.
+  goal: a thesis topic at the frontier that is novel enough to defend and small enough to finish.
+  success: a clear research question, a baseline, controlled experiments, and a possible workshop paper.
+  request: I'm choosing a master's thesis topic around {a}. Which open questions are worth it, what would I build, and how would I evaluate it?
+
+phd_first_year:
+  label: First-year PhD student
+  anchor: method
+  background: Strong maths and ML fundamentals; looking for a research direction for the next 3-4 years.
+  constraints: one year to a first paper; modest compute; an advisor who wants a clear agenda.
+  goal: a research direction with depth, open problems, and room for several papers.
+  success: a map of who works on what, the open problems, and a first project that leads somewhere.
+  request: I'm a first-year PhD student considering {a} as my research direction. Who is doing what, where are the open problems, and what should my first project be?
+
+career_switcher:
+  label: Software engineer moving into ML
+  anchor: method
+  background: Five years as a backend engineer; strong systems and Python; little ML beyond tutorials.
+  constraints: evenings and weekends for 3 months; a personal budget of about $100 for compute.
+  goal: credible ML experience that gets an ML engineering interview.
+  success: one or two portfolio projects that use real tools and show production sense.
+  request: I'm a software engineer trying to move into ML through {a}. What should I learn, what should I build for my portfolio, and which tools do companies actually use?
+
+junior_ml_engineer:
+  label: Junior ML engineer
+  anchor: technology
+  background: One year in an ML team; ships fine-tuning and evaluation jobs others designed.
+  constraints: a quarter, team infrastructure, must justify work to a manager.
+  goal: own a project end to end and become the team's go-to person for one area.
+  success: a scoped project with measurable impact and a stack the team can maintain.
+  request: I'm a junior ML engineer and want to become our team's expert in {a}. What should I learn, which project would prove it, and how would I measure it?
+
+senior_research_engineer:
+  label: Senior research engineer
+  anchor: method
+  background: Several years training models at scale; reads papers weekly; knows the standard stack well.
+  constraints: one quarter, a small cluster, results must be reproducible.
+  goal: find where {a} is heading and run experiments that would change the team's roadmap.
+  success: a sharp hypothesis, baselines from current practice, and controlled experiments.
+  request: I'm a senior research engineer looking at {a}. Where is practice heading, which experiments would be most informative, and what baselines should I compare against?
+
+applied_ml_startup:
+  label: Applied ML engineer at a startup
+  anchor: technology
+  background: Generalist at a 20-person startup; ships product features with LLMs; cares about cost and latency.
+  constraints: weeks, not months; production constraints; small budget.
+  goal: decide whether and how to use {a} in the product.
+  success: a stack choice with trade-offs, a prototype plan, and the metrics that decide go or no-go.
+  request: I'm an ML engineer at a startup deciding whether to adopt {a}. Which stack and vendors should I look at, what should I prototype, and what should decide it?
+
+forward_deployed:
+  label: Forward-deployed engineer
+  anchor: org
+  background: Customer-facing engineer; broad stack; deploys AI systems inside customer environments.
+  constraints: two weeks before the first customer meeting.
+  goal: walk in knowing the customer's stack, practices and likely pain points.
+  success: a prototype plan and first-deployment metrics that fit the customer's setup.
+  request: I'm a forward-deployed engineer about to start working with {a} as a customer. Which stack and practices should I expect, what should I prototype before day one, and what should I measure first?

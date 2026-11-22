@@ -2,6 +2,11 @@
 huggingface:
   enabled: true
   models_per_org: 12          # top by downloads
+  datasets_per_org: 6
+  auto_map: true              # also map AI-relevant KB orgs to Hub orgs (strict; ambiguous → review)
+  exclude:                    # confirmed or suspected false matches (owner review)
+    - Turing                  # KB: AI data company; Hub: turing-motors
+    - Gray Swan               # Hub handle 'sureheremarv' needs a human check
   # seed name -> Hugging Face organisation. PROPOSED; owner to confirm.
   orgs:
     Mistral AI: mistralai
@@ -16,3 +21,4 @@ huggingface:
     AI21 Labs: ai21labs
     Hugging Face: HuggingFaceTB
     Thinking Machines Lab: thinkingmachines
+    Anthropic: Anthropic          # two verified Hub orgs (Anthropic, Anthropic-ai): owner choice
