@@ -45,8 +45,8 @@ ITEMS: dict[str, tuple[str, str]] = {
     # accuracy is split into two atomic questions (TypeSafe: split compound judgments). The combined version
     # ("real, current and appropriate") got P(yes) 0.22 from Jev on good answers, so it could not detect anything.
     "no_invented": ("accuracy", "Are all the named tools, organisations, datasets and benchmarks real (none made up)?"),
-    "no_dated": ("accuracy", "Are all the named tools and libraries still maintained and in current use (none "
-                             "discontinued or abandoned)?"),
+    "no_dated": ("accuracy", ("Are all the named tools and libraries still maintained and in current use (none "
+                             "discontinued or abandoned)?")),
     "flags_uncertainty": ("honesty", "Does the advice flag at least one uncertain, unverified or self-claimed fact?"),
     "gap_or_connection": ("insight", ("Does it point out a gap or a non-obvious connection (who does what, what is "
                                      "missing) that changes the plan?")),

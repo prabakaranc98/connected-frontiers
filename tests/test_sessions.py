@@ -203,3 +203,12 @@ def test_blind_keeps_content_and_drops_only_citations():
     for kept in ("SFT basics", "DPO and beta", "Ladder", "TRL, vLLM", "Run SFT", "Does DPO help?", "PyTorch, TRL"):
         assert kept in t, kept
     assert "org:x|uses_method" not in t and "based_on" not in t and "sources" not in t
+
+
+def test_blind_removes_graph_mentions_but_keeps_tool_names():
+    from cf.bench.guidance import _blind
+    a = {"summary": "The graph shows vLLM leads. No suite appears in the graph. Use CUDA Graph capture.",
+         "learn": [], "projects": [], "experiments": [], "stack": []}
+    t = _blind(a)
+    assert "The evidence shows vLLM leads" in t and "appears." in t and "CUDA Graph" in t
+    assert "the graph" not in t.lower()

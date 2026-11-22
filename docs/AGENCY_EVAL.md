@@ -260,3 +260,8 @@ answers of `agency_fit_dev/20261122-0106` with `cf checklist`; $0.19 in total, o
 
 Reading: Jev is a cheap first-pass scorer (about 40× cheaper than the LLM judges here) that catches planted
 defects, not a replacement for them. Which scorer is *right* needs human labels: the owner's blind review.
+
+**Blinding leak (found 2026-11-22, fixed):** one agentic answer said "The graph shows production relevance…"; the
+filter removed "in the graph" but not "the graph shows", so the judges could see that phrase. It affects one task
+(`A-undergrad_capstone-00`, kg_agentic) in pilot 0103 and fit_dev 0106. That answer lost its comparisons (0.00), so
+the leak did not favour grounding; the judgements stand, flagged. `_blind` now rewrites it to "the evidence".

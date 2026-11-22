@@ -671,7 +671,10 @@ class Pref(_S):
     winner: Literal["A", "B", "tie"]
 
 
-_LEAK = re.compile(r"(according to|from|in|per) (the|our|my) (knowledge )?graph|knowledge graph|\bKG\b|edge[ _]?id", re.IGNORECASE)
+_LEAK = re.compile(r"\s?(according to|from|in|per) (the|our|my) (knowledge )?graph|knowledge graph|\bKG\b|edge[ _]?id", re.IGNORECASE)
+# "The graph shows X" survived the filter above (found 2026-11-22 in one pilot answer): name the source neutrally
+# instead of deleting words, so the sentence still reads. "CUDA Graph" and "graph neural network" are left alone.
+_LEAK_THE = re.compile(r"\b(the|this|our|my) graph\b(?! neural)", re.IGNORECASE)
 
 
 _CITE = re.compile(r"\[\s*(?:[a-z_]+:[^\]\s,]+(?:\|[^\]\s,]+)+)(?:\s*,\s*[a-z_]+:[^\]\s,]+(?:\|[^\]\s,]+)+)*\s*\]")
@@ -694,7 +697,8 @@ def _blind(a: dict) -> str:
                                              f"Measure: {e.get('measure', '')}")]
     L += ["", "Stack: " + ", ".join(a.get("stack") or [])]
     text = "\n".join(L)
-    return _LEAK.sub("", _CITE.sub("", text))
+    text = _LEAK.sub("", _CITE.sub("", text))
+    return _LEAK_THE.sub(lambda m: "The evidence" if m.group(1)[0].isupper() else "the evidence", text)
 
 
 def fact_sheet(kg: KG, *answers: dict) -> str:
