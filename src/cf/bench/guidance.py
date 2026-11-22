@@ -509,6 +509,99 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
     return out
 
 
+# ---- memory-first, graph-enriched: draft from memory → check claims in the graph → revise only what evidence changes ----
+class Check(_S):
+    claim: str
+    kind: Literal["name", "fact", "who_now", "gap"]
+    lookup: str
+
+
+class Checks(_S):
+    checks: list[Check]
+
+
+class Change(_S):
+    kind: Literal["replaced", "added", "flagged", "gap", "removed"]
+    what: str
+    finding: int
+
+
+class EnrichedGuidance(_S):
+    summary: str
+    learn: list[str]
+    learn_based_on: list[int]
+    projects: list[LinkedProject]
+    experiments: list[Experiment]
+    stack: list[str]
+    sources: list[str]
+    changes: list[Change]
+
+
+CHECKS = ("Here is a draft of your advice, written from your own knowledge:\n{draft}\n\nList 5-8 things in it that a "
+          "knowledge graph of the AI ecosystem could confirm, correct or sharpen: named tools, organisations, datasets "
+          "and benchmarks (kind `name`); factual claims about who uses or offers what (kind `fact`); and always one "
+          "`who_now` check (which organisations do this in practice now) and one `gap` check (what is missing or "
+          "unverified). For each, write what to look up.")
+ENRICH_RESEARCH = ("Check these items with the tools. Find the entity, follow its relations, and call `evidence` on "
+                   "the edges you will rely on. Record 'not in the graph' when a lookup finds nothing; that is not "
+                   "proof the claim is false. When every item is checked, reply with a short summary.")
+ENRICH = ("Now revise the draft. Keep its structure, its learning path and its projects where the evidence does not "
+          "change them: the draft is the plan. Change only what the findings change:\n"
+          "- replace a name the findings show is wrong or dated;\n"
+          "- add a specific organisation, tool, dataset or benchmark the findings show is used for this;\n"
+          "- flag a fact that is only self-claimed or unverified;\n"
+          "- state a gap the findings show (e.g. no benchmark exists for X), if it changes the plan.\n"
+          "List every change in `changes` with the finding index (0-based) behind it. Projects list in `based_on` the "
+          "findings they use (empty if unchanged from the draft). Limits: learn ≤ 6, projects 2-3 (stack ≤ 6 each), "
+          "experiments 1-2, stack ≤ 8. Do not mention your tools or a graph in the text; put edge ids only in `sources`.")
+
+
+def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14) -> dict:
+    """Memory-first: `draft` is this model's closed-book answer (the same one the closed-book condition is scored
+    on), so the comparison isolates what grounding changes. Returns the revised answer plus the recorded diff."""
+    llm = LLM(model)
+    t0 = time.time()
+    kg = copy.copy(kg)
+    kg.empty_hints, kg.truncation_notice, kg.neighbor_limit = True, True, GROUNDED_HARNESS["neighbor_limit"]
+    d = draft.get("answer") or {}
+    msgs = [{"role": "system", "content": SYS_GROUNDED + "\n\n" + kg.schema_card()},
+            {"role": "user", "content": task["question"]}]
+    steps: list[dict] = []
+    err, checks, notes, answer, prose = None, [], [], None, ""
+    try:
+        checks = _structured(llm, msgs + [{"role": "user", "content": CHECKS.format(draft=_blind(d))}], Checks,
+                             "guidance_enrich_checks", max_tokens=1500).get("checks", [])[:8]
+        msgs.append({"role": "user", "content": ENRICH_RESEARCH + "\n\nItems:\n" +
+                     "\n".join(f"{i + 1}. [{c['kind']}] {c['claim']} → look up: {c['lookup']}" for i, c in enumerate(checks))})
+        prose = _tool_loop(llm, msgs, kg, steps, max_steps, "guidance_enrich_research")
+        notes = _structured(llm, msgs + [{"role": "user", "content": NOTES}], Notes, "guidance_enrich_notes").get("findings", [])[:10]
+        msgs += [{"role": "user", "content": NOTES}, {"role": "assistant", "content": json.dumps({"findings": notes})},
+                 {"role": "user", "content": "The draft again:\n" + _blind(d) + "\n\n" + ENRICH}]
+        answer = _structured(llm, msgs, EnrichedGuidance, "guidance_enrich_revise")
+        changes = answer.pop("changes", [])
+        answer = _cap(answer)
+    except BudgetExceeded:
+        raise
+    except (RuntimeError, ValueError) as e:
+        err, changes = str(e)[:200], []
+    met = metrics(kg, answer, task) if answer else None
+    if met:
+        before, after = set(_names(d)), set(_names(answer))
+        met = {**met, "findings": len(notes), "changes": len(changes),
+               "changes_by_kind": {k: sum(1 for c in changes if c.get("kind") == k) for k in ("replaced", "added", "flagged", "gap", "removed")},
+               "names_added": sorted(after - before), "names_removed": sorted(before - after),
+               "evidence_reads": sum(1 for s_ in steps if s_["tool"] in ("evidence", "passage", "documents")),
+               "salient_in_findings": round(len({x for f in notes for n in f.get("entities") or [] if (x := _resolve(kg, n))}
+                                                 & set(task.get("salient") or [])) / max(len(task.get("salient") or []), 1), 3)}
+    out = {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model,
+           "condition": "kg_enrich", "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "plan": [c.get("claim") for c in checks],
+           "checks": checks, "notes": notes, "changes": changes, "draft": d, "answer": answer, "steps": steps,
+           "prose": prose[:6000], "error": err, "metrics": met, "stratum": task.get("stratum"),
+           "cost_usd": round(llm.spent + (draft.get("cost_usd") or 0), 5), "latency_s": round(time.time() - t0, 1)}
+    trace.event("agent", {"guidance": task["id"], "model": model, "condition": "kg_enrich", "metrics": met})
+    return out
+
+
 # ---- deterministic, KB-checkable metrics -------------------------------------------------------------------
 def _names(a: dict) -> list[str]:
     names = list(a.get("stack") or []) + list(a.get("learn") or [])

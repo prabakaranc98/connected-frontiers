@@ -34,6 +34,7 @@ from cf.llm.client import AUTO, LLM, BudgetExceeded
 OUT = config.EVAL / "experiments"
 CACHE = config.EVAL / "cache" / "agency"
 HARNESS_VERSION = "agentic-v2"            # bump when run_agentic's prompts or gates change (invalidates the cache)
+ENRICH_VERSION = "enrich-v1"              # same, for run_enrich (memory-first, graph-enriched)
 
 
 def personas() -> dict:
@@ -145,7 +146,8 @@ def curate(cands: list[dict], per_persona: int, rich: int, examiner: str = G.EXA
 # ---- 2 · answers, cached ------------------------------------------------------------------------------
 def _key(task: dict, model: str, condition: str) -> str:
     h = hashlib.sha256(json.dumps([task["question"], task["kb_version"], model, condition,
-                                   HARNESS_VERSION if condition.startswith("kg_agentic") else ""]).encode()).hexdigest()[:24]
+                                   HARNESS_VERSION if condition.startswith("kg_agentic") else
+                                   ENRICH_VERSION if condition == "kg_enrich" else ""]).encode()).hexdigest()[:24]
     return h
 
 
@@ -159,6 +161,11 @@ def answer(task: dict, model: str, condition: str, kg: KG) -> dict:
         on = frozenset(head.split("+")[1:])
         off = frozenset(x for x in offs.split(",") if x)
         r = {**G.run_agentic(model, t, kg, off=off, on=on), "condition": condition}
+    elif condition == "kg_enrich":             # memory-first: revise this model's own (cached) closed-book answer
+        draft = answer(task, model, "closed_book", kg)
+        if not draft.get("answer"):
+            return {**draft, "condition": condition, "error": f"no draft: {draft.get('error')}"}
+        r = G.run_enrich(model, t, kg, draft)
     else:
         r = G.run(model, t, condition, kg)
     if r.get("answer"):
@@ -315,8 +322,13 @@ def run_experiment(cfg_path: str) -> dict:
     (out / "tasks.jsonl").write_text("".join(json.dumps(t, ensure_ascii=False) + "\n" for t in tasks))
     models, conds, workers = cfg["models"], cfg["conditions"], cfg.get("workers", 6)
     jobs = [(t, m, c) for t in tasks for m in models for c in conds]
+    jobs += [(t, m, "closed_book") for t in tasks for m in cfg.get("large_closed_book", [])]   # H3: large, from memory
+    # closed-book answers first: kg_enrich revises exactly the cached closed-book answer that gets scored
+    first = sorted(jobs, key=lambda j: j[2] != "closed_book")
+    n_closed = sum(1 for j in first if j[2] == "closed_book")
     with ThreadPoolExecutor(workers) as pool:
-        runs = list(pool.map(lambda j: {**answer(j[0], j[1], j[2], kg), "task_id": j[0]["id"]}, jobs))
+        runs = list(pool.map(lambda j: {**answer(j[0], j[1], j[2], kg), "task_id": j[0]["id"]}, first[:n_closed]))
+        runs += list(pool.map(lambda j: {**answer(j[0], j[1], j[2], kg), "task_id": j[0]["id"]}, first[n_closed:]))
     ok = [r for r in runs if r.get("answer")]
     if len(ok) < 0.9 * len(runs):
         raise RuntimeError(f"invalid experiment: {len(runs) - len(ok)}/{len(runs)} runs failed")
@@ -356,14 +368,66 @@ def run_experiment(cfg_path: str) -> dict:
                                           **pairwise(J["models"], J["roles"], p_[1], p_[2]["answer"], p_[3]["answer"],
                                                      G.fact_sheet(kg, p_[2]["answer"], p_[3]["answer"]))}, pjobs))
     (out / "pairwise.jsonl").write_text("".join(json.dumps(p_, ensure_ascii=False) + "\n" for p_ in prefs))
+    ck = cfg.get("checklist")
+    if ck:                                   # typed yes/no items, scored by code, Jev and LLM judges, then compared
+        crow, cut = run_checklist(ck, tasks, ok, kg, workers)
+        (out / "checklist.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in crow))
+        result["checklist_unit_tests"] = cut["summary"] if cut else None
+        if cut:
+            (out / "checklist_unit_tests.json").write_text(json.dumps(cut, indent=1))
     result["spend_usd"] = round(LLM.spent_usd - spend0, 4)
     rep = report(result, tasks, ok, scores, prefs)
+    if ck:
+        from cf.bench import checklist as C
+        rep += "\n" + C.report(crow, cut)
     (out / "report.md").write_text(rep)
     (out / "result.json").write_text(json.dumps(result, indent=1, default=str))
     with (config.EVAL / "experiments.jsonl").open("a") as f:
         f.write(json.dumps({"ts": stamp, "level": "agency", "name": name, "dir": str(out), "spend_usd": result["spend_usd"],
                             "judge_unit_tests": result.get("judge_unit_tests")}, default=str) + "\n")
     return {**result, "dir": str(out), "report": rep}
+
+
+def _sheets(kg: KG, runs: list[dict]) -> dict:
+    """One symmetric fact sheet per (task, model), covering every condition's answer."""
+    by = defaultdict(list)
+    for r in runs:
+        by[(r["task_id"], r["model"])].append(r["answer"])
+    return {k: G.fact_sheet(kg, *v) for k, v in by.items()}
+
+
+def run_checklist(ck: dict, tasks: list[dict], runs: list[dict], kg: KG, workers: int = 6) -> tuple[list[dict], dict | None]:
+    from cf.bench import checklist as C
+    q, prof = {t["id"]: t for t in tasks}, personas()
+    rows = C.score_runs(ck["scorers"], runs, q, prof, _sheets(kg, runs), kg, workers)
+    cut = None
+    if ck.get("unit_tests", True):
+        sample = [r for r in runs if r["condition"] != "closed_book"][: ck.get("unit_test_answers", 4)] or runs[:4]
+        cut = C.unit_tests(ck["scorers"], [q[r["task_id"]] for r in sample], [r["answer"] for r in sample], prof, kg, workers)
+    return rows, cut
+
+
+def rescore_checklist(exp_dir: str, scorers: list[str], unit_tests: bool = True) -> dict:
+    """Score an existing experiment's cached answers with the checklist (no new answers are generated)."""
+    from cf.bench import checklist as C
+    d = Path(exp_dir)
+    tasks = [json.loads(x) for x in (d / "tasks.jsonl").read_text().split("\n") if x.strip()]
+    runs = [r for x in (d / "runs.jsonl").read_text().split("\n") if x.strip() and (r := json.loads(x)).get("answer")]
+    kg = KG(version=tasks[0]["kb_version"])
+    spend0 = LLM.spent_usd
+    rows, cut = run_checklist({"scorers": scorers, "unit_tests": unit_tests}, tasks, runs, kg)
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
+    (d / f"checklist-{stamp}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    rep = f"# Checklist re-score of `{d.parent.name}/{d.name}` · {stamp}\n\nScorers: {', '.join(scorers)} · spend " \
+          f"${LLM.spent_usd - spend0:.4f}\n\n" + C.report(rows, cut)
+    (d / f"checklist-{stamp}.md").write_text(rep)
+    if cut:
+        (d / f"checklist_unit_tests-{stamp}.json").write_text(json.dumps(cut, indent=1))
+    with (config.EVAL / "experiments.jsonl").open("a") as f:
+        f.write(json.dumps({"ts": stamp, "level": "agency-checklist", "of": f"{d.parent.name}/{d.name}", "dir": str(d),
+                            "scorers": scorers, "spend_usd": round(LLM.spent_usd - spend0, 5),
+                            "unit_tests": cut["summary"] if cut else None}) + "\n")
+    return {"report": rep, "rows": len(rows), "spend_usd": round(LLM.spent_usd - spend0, 5)}
 
 
 PERSONA_DIMS = ("usefulness", "fit", "would_act")

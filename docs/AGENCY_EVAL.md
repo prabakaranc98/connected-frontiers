@@ -232,3 +232,31 @@ judge scored it lower (3.92).
 **Next** (pending approval): a memory-first, graph-enriched harness variant (draft from memory, then research the
 graph for organisations, tools, data and hiring), checklist scoring, the familiarity test, and the 16-task v1 set
 covering all eight personas.
+
+### Typed checklist: code vs Jev vs LLM judges (2026-11-22)
+
+13 yes/no items (`cf/bench/checklist.py`), each scored by deterministic code (abstains where a rule cannot
+decide), TypeSafe **Jev 1.14** (a "System One" typed evaluation model, via OpenRouter's Decisions API; one `noul`
+question per item, returns P(yes)) and two LLM judges (evidence per item, then yes/no). Re-score of the 12 cached
+answers of `agency_fit_dev/20261122-0106` with `cf checklist`; $0.19 in total, of which Jev $0.005.
+
+| Scorer | Mean P(yes) by condition (memory · agentic · fit) | Defects caught | generic | made-up tool | infeasible | no baseline | Theano (famous, dated) | made-up name | Familiarity gap |
+|---|---|---|---|---|---|---|---|---|---|
+| code | 0.85 · 0.95 · 0.85 | 100% (n 20) | 100% | abstains | 100% | 100% | abstains | abstains | – |
+| Jev 1.14 | 0.69 · 0.70 · 0.77 | 79% (n 29) | 38% | 100% | 100% | 88% | 100% | 100% | 0.0 |
+| GLM-5.3 | 0.93 · 0.95 · 0.98 | 91% (n 34) | 62% | 100% | 100% | 100% | 100% | 100% | 0.0 |
+| Nemotron 3.5 | 0.91 · 0.96 · 1.00 | 72% (n 36) | 12% | 100% | 100% | 100% | 75% | 50% | −0.25 |
+
+- The LLM judges still sit near the ceiling on yes/no items (GLM answers yes to `fit_compute` on every answer).
+  Jev spreads its probabilities more (0.48-0.98 per item), but there is no ground truth yet, so spread is not
+  accuracy.
+- No scorer separates the conditions on these 4 tasks.
+- **Familiarity bias is not supported** here: Jev and GLM catch a famous-but-dated name as often as a made-up
+  one, and Nemotron catches the famous one more often. The earlier correlation (§13) was confounded.
+- Every model scorer is weak on "generic" answers (specifics stripped); only the code rule catches them reliably.
+- Agreement is high in % but κ is mostly 0 or undefined, because nearly every answer gets "yes" (ceiling).
+- A first item that combined three questions ("real, current and appropriate") got P(yes) 0.22 from Jev on good
+  answers. Split into two atomic items, as TypeSafe advises, it works.
+
+Reading: Jev is a cheap first-pass scorer (about 40× cheaper than the LLM judges here) that catches planted
+defects, not a replacement for them. Which scorer is *right* needs human labels: the owner's blind review.

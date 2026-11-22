@@ -241,6 +241,18 @@ def experiment(cfg: str = typer.Argument(..., help="e.g. configs/experiments/age
 
 
 @app.command()
+def checklist(exp_dir: str = typer.Argument(..., help="an experiment run folder, e.g. eval/experiments/agency_pilot/20261122-0103"),
+              scorers: str = typer.Option("code,jev,llm:z-ai/glm-5.3,llm:nvidia/nemotron-3.5-super-vl",
+                                          help="comma-separated: code · jev · llm:<model id>"),
+              unit_tests: bool = typer.Option(True, help="also run the defect tests (incl. the familiarity test)")) -> None:
+    """Re-score an experiment's cached answers with the typed checklist; compare code, Jev and LLM scorers per item."""
+    from cf.bench.agency import rescore_checklist
+
+    res = rescore_checklist(exp_dir, [s.strip() for s in scorers.split(",") if s.strip()], unit_tests)
+    console.print(res["report"])
+
+
+@app.command()
 def advise(question: str = typer.Argument(...), persona: str = typer.Option("undergrad_capstone", help="key in configs/personas.yaml"),
            model: str = typer.Option("thinkingmachines/inkling-2-small")) -> None:
     """Grounded guidance: the agentic harness researches the KB and builds advice from cited findings."""
