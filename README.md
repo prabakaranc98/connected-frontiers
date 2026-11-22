@@ -2,27 +2,30 @@
 
 > A knowledge graph of the frontier-AI research and industry ecosystem: who serves whom, on which
 > problems, with which methods, measured on which benchmarks, on what infra, and hiring for which
-> skills. It is **built the PageRank way** by a rank-guided crawler, and **explained** by a reasoner
-> that cites its evidence.
+> skills. It is **built the PageRank way** by a rank-guided crawler, every claim keeps its quote and
+> an evidence status, and **agents reason over it** to help people decide what to learn, build and test.
 
-**▶ Explore it:** [pracha.me/connected-frontiers](https://pracha.me/connected-frontiers/) (interim KB, crawl in progress; click an entity to explore its connections and evidence).
+**▶ Explore it:** [pracha.me/connected-frontiers](https://pracha.me/connected-frontiers/) (click an entity to explore its connections and evidence).
 
-**Status (2026-11-21):** v0.1, mid-crawl. Three roles run end to end: the Constructor builds a
-versioned KB, the Examiner builds and gates multi-turn tasks from it, the Reasoner answers them in
-five retrieval modes, and a per-KB scorecard measures truth, coverage, usefulness and cost.
-**The agent harness is not optimised yet** (no prompt or tool tuning, no retries or self-checks):
-the numbers below are a first, honest baseline.
+What started as a curiosity is now an end-to-end system: curation and indexing of a knowledge graph,
+a harness for inference agents, task curation, and evaluation testbeds, used to test whether grounding
+in the graph actually helps people.
 
-| v0.1 at a glance (KB `v20261121-1821`) | |
+**Status (2026-11-22):** v0.1. The crawl round is built into KB `v20261122-0022`. The agent harness was
+improved by a measured loop (held-out confirmed); the agency testbed (persona tasks, persona and expert
+LLM judges) is running its pilot. Everything below is measured, with intervals, and limits are stated.
+
+| v0.1 at a glance | |
 |---|---|
-| Graph | 1,134 pages · 10,219 entities · 11,196 edges · 117 segments (82 named) · crawl still running (1,550+ pages) |
-| Truth (silver re-reads the cited page) | verifier-accepted edges supported 93–97% · verifier-rejected 50% (it discards real edges) · ER accuracy 0.86, false merges 0.13 |
-| Usefulness (10 gated sessions) | Inkling-2-small: KG tools **0.86** mean F1 vs **0.19** closed book (paired Δ +0.67 [+0.56, +0.76]) · whole-session pass@1 **40%** [10–70%] |
-| Cost | $4.6 LLM spend all time · ~$0.003 per multi-turn conversation |
+| Graph (KB `v20261122-0022`) | 1,921 pages · 254 publishers · **15,544 entities · 17,930 edges** · 22,035 quoted claims · 133 segments · Hugging Face lineage for 169 mapped orgs (partly attached; see backlog) |
+| Truth (silver judges re-read the cited page) | verifier-accepted edges supported 93–97% · rejected ones 50% (the verifier is too strict) · ER accuracy 0.86 |
+| Grounded QA (10 sessions, KB `v20261121-1821`) | Inkling-2-small: graph tools **0.86** F1 vs **0.19** from memory (paired Δ +0.67 [+0.56, +0.76]) |
+| Harness improvement (14 held-out sessions) | schema card + longer neighbour lists: graph tools 0.71 → **0.94** F1, graph query 0.57 → **0.98** (Inkling); every interval above 0 |
+| Cost | **$8.9** of LLM spend in total, small open-weight models |
 
-Full scorecard: [reports/scorecard-v20261121-1821.md](reports/scorecard-v20261121-1821.md).
+![Architecture](docs/architecture.png)
 
-![Architecture](docs/architecture.svg)
+*Architecture as built ([SVG](docs/architecture.svg)); dashed parts are planned.*
 
 ---
 
@@ -78,15 +81,16 @@ flowchart LR
 
 | Part | What it does | Where |
 |---|---|---|
-| 🕸️ **Constructor** (curation) | rank-guided crawl → noise gates → extract → verify → grade → resolve → versioned KB (graph + GraphRAG index) | `src/cf/crawl`, `extract`, `graph`, `resolve`, `rank`, `docs.py`, `kb.py` |
-| 🧪 **Examiner** (task builder) | builds multi-turn tasks from a KB release: keys computed by graph algorithms, LLM-written turns, deterministic checks, a solver gate | `src/cf/bench/sessions.py` |
-| 🧠 **Reasoner** (inference) | answers from the KB in one retrieval mode (closed book · GraphRAG · KG tools · graph query · oracle), citing every claim | `src/cf/agent` |
-| 🗺️ **Explorer** | the real graph (ForceAtlas2): zoom reveals more entities; click to explore in place and walk a trail; entity card with relations, evidence status and sources; relation lens; path finder | `src/cf/viz` |
-| 📏 **Eval + observability** | per-KB scorecard (truth · coverage · structure · usefulness · cost), silver labels (4-judge ensemble), traces, live crawl monitor | `src/cf/eval`, `trace.py`, `serve.py`, [EVAL.md](EVAL.md) |
-| 🤗 **Release** | HF collection: `kg` · `bench` (tasks + sessions) · `runs` (trajectories) · `labels` | `release.py`, [docs/DATASET.md](docs/DATASET.md) |
+| 🕸️ **Constructor** (curation) | rank-guided crawl → noise gates → extract → verify → grade → resolve → versioned KB (graph + GraphRAG index); Hugging Face adapter for models, datasets and lineage | `src/cf/crawl`, `extract`, `graph`, `resolve`, `adapters`, `docs.py`, `kb.py` |
+| 🧠 **Reasoner** (inference) | five conditions: closed book · GraphRAG · plain tools · **agentic harness** (plan → research → read evidence → notes → advice built on findings, with three gates) · oracle | `src/cf/agent`, `src/cf/bench/guidance.py` |
+| 🧪 **Examiner** (task curation) | QA sessions whose answers are computed on the graph (solver-gated), and **agency tasks** for 8 personas, curated and written by a separate model family | `src/cf/bench/sessions.py`, `agency.py` |
+| 📏 **Evaluator** | deterministic scores · silver truth checks · **persona and expert LLM judges** · judge unit tests (deliberately degraded answers must score lower) | `src/cf/eval`, `src/cf/bench/agency.py` |
+| 🔬 **Testbed** | experiments as YAML, answer cache, ledger with corrections, meta loop (diagnose → propose → held-out → promote) | `configs/experiments`, `src/cf/bench/meta.py` |
+| 🗺️ **Applications** | public explorer · `cf advise` (grounded guidance with cited findings) · showcase · HF release | `src/cf/viz`, `agency.py`, `release.py` |
 
 The gap between the Examiner (which knows each answer) and the Reasoner (which must find it), per
-retrieval mode and turn, is each release's scorecard. Design: [docs/DESIGN.md §0 and §5](docs/DESIGN.md#5-reasoner-and-examiner).
+retrieval mode and turn, is each release's scorecard. Design: [docs/DESIGN.md](docs/DESIGN.md) and, for
+the persona evaluation, [docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md).
 
 The core experiment: does **personalized-PageRank "push" crawling** reach the relevant
 ecosystem in fewer fetches than **BFS**? Details are in [docs/DESIGN.md §3](docs/DESIGN.md#3-the-crawl-algorithm-and-estimating-coverage).
@@ -123,11 +127,37 @@ because KB-derived keys measure use of the KB, not whether the KB is right.
 - **Uncertainty is large.** 10 sessions give pass@1 intervals ~60 points wide. Next run: 40 sessions,
   3 trials each (pass^3 for reliability), precision / recall / citation validity, an owner audit of 20 keys.
 
-**Not optimised yet:** the harness has default prompts and tool descriptions, no retries, no
-self-verification and no tuning per model. Bugs fixed while building this (all with tests): answers
-listing the question's subject instead of the answer (now schema-enforced), a prompt that suppressed
-tool use, lineage keys asking for data the source never recorded, and JSONL records split by
-Unicode line separators.
+**First run, untuned harness:** default prompts and tool descriptions, no retries, no self-verification.
+Bugs fixed while building it (all with tests): answers listing the question's subject instead of the
+answer (now schema-enforced), a prompt that suppressed tool use, lineage keys asking for data the source
+never recorded, and JSONL records split by Unicode line separators. The harness was then improved, as
+measured below.
+
+### Improving the harness, measured (v0.1)
+
+The first numbers above came from an untuned harness. A meta loop read the failures on a training split
+(66% of graph queries returned nothing; lists were silently cut at 25 edges), a different-family model
+proposed three harness changes, and the best was confirmed on 14 held-out sessions:
+
+| Model · mode | Old harness | Schema card + neighbour lists of 50 | Whole session right |
+|---|---|---|---|
+| Inkling-2-small · graph tools | 0.71 | **0.94** | 36% → 64% |
+| Inkling-2-small · graph query | 0.57 | **0.98** | 21% → 71% |
+| Qwen3.5-35B · graph tools | 0.58 | **0.87** | 14% → 50% |
+| Qwen3.5-35B · graph query | 0.37 | **0.87** | 7% → 43% |
+
+The gain is mostly recall: telling the agent which relations exist stops it missing entities. One
+held-out run was invalidated when the API key ran out mid-run; the ledger keeps that correction.
+
+### Beyond QA: guidance for people (in progress)
+
+The next question is whether the graph helps people decide what to learn, build and test. Eight persona
+profiles (undergraduate to senior research engineer, career switcher, forward-deployed engineer) get
+tasks curated from the graph; answers from memory, plain tools and the agentic harness are judged by
+persona and expert LLM judges, after the judges pass unit tests. Design and hypotheses:
+[docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md). On one capstone question, the agentic harness built its advice
+from 8 cited findings and surfaced 13 organisations that no answer from memory named; whether that holds
+across tasks is what the testbed measures.
 
 ## Quickstart
 
@@ -162,6 +192,11 @@ Optional extras: `uv sync --extra extract-baseline` (GLiNER, pulls torch), `--ex
 | `cf docs` / `cf ask "<q>" --mode graph_rag` | GraphRAG document index · grounded answers citing passages + edges | ✅ |
 | `cf kb list\|show\|diff\|use` | versioned KB snapshots (manifest: counts, models, prompts, git) | ✅ |
 | `cf release [--push --repo …]` | HF collection: kg · bench (tasks + sessions) · runs · labels (push is private, explicit) | ✅ |
+| `cf advise "<question>" --persona <key>` | grounded guidance: the agentic harness researches the KB, cites its findings, writes a markdown card | ✅ |
+| `cf experiment configs/experiments/<name>.yaml` | agency experiment: curated tasks → answers (cached) → judge unit tests → persona and expert judges → report | ✅ |
+| `cf meta [--confirm h2 --confirm h3]` | meta loop: diagnose failures → propose harness specs → select on train → confirm on held-out | ✅ |
+| `cf discover` · `cf guidance` | persona discovery and guidance evals (earlier versions of the agency testbed) | ✅ |
+| `cf site` · `scripts/deploy_pages.sh` | build and deploy the public explorer to GitHub Pages | ✅ |
 | `cf crawl --policy bfs` vs `ppr` | the core crawl comparison | built, comparison run pending |
 
 ## Project layout
@@ -170,12 +205,13 @@ Optional extras: `uv sync --extra extract-baseline` (GLiNER, pulls torch), `--ex
 connected-frontiers/
 ├── README.md · PROBLEM.md · EVAL.md · DECISIONS.md
 ├── pyproject.toml · Makefile · .env.example
-├── docs/       DESIGN.md · DATASET.md · architecture.svg
-├── configs/    seeds.yaml · crawl.yaml · eval.yaml
-├── src/cf/     cli · config · interfaces · crawl/ extract/ resolve/ graph/ rank/ reason/ viz/ eval/ llm/
+├── docs/       DESIGN.md · AGENCY_EVAL.md · DATASET.md · architecture.svg/.png · case-study/
+├── configs/    seeds.yaml · crawl.yaml · models.yaml · personas.yaml · experiments/
+├── src/cf/     cli · crawl/ extract/ resolve/ graph/ rank/ adapters/ agent/ bench/ eval/ viz/ llm/ · kb · docs · release · serve
 ├── tests/      notebooks/
 ├── data/       raw/ interim/ processed/ (gitignored) · samples/
-└── eval/       gold/ (frozen) · results/ (gitignored)
+├── scripts/    crawl supervisor · deploy · diagram, poster and showcase generators
+└── eval/       gold/ (frozen) · experiments/ · experiments.jsonl (ledger) · results/ (gitignored)
 ```
 
 ## Documents
@@ -184,6 +220,7 @@ connected-frontiers/
 |---|---|
 | [PROBLEM.md](PROBLEM.md) | north star, user, task, objective: the eight objects |
 | [docs/DESIGN.md](docs/DESIGN.md) | **layered architecture** (acquire → extract/verify → curate → represent → use → evaluate → release), crawl algorithm, understanding views |
+| [docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md) | persona-based evaluation of guidance: task curation, judges, judge validation, hypotheses |
 | [docs/DISCOVERY.md](docs/DISCOVERY.md) | opportunity discovery and education uses (owner priorities) |
 | [EVAL.md](EVAL.md) | metrics, frozen test sets, baselines, results log |
 | [docs/EVIDENCE.md](docs/EVIDENCE.md) | truth vs claim: evidence grading, Reasoner wording rules |

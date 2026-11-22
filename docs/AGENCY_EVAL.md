@@ -84,6 +84,9 @@ Size: 16 tasks for v1 (4 personas × 4: 3 rich, 1 thin). Splits: dev (harness an
 | Plain tools | graph tools, one free loop |
 | Agentic harness | plan → multi-step research → evidence gate → notes (findings with edges and implications) → coverage reflection → advice built from findings → synthesis check |
 
+Planned (backlog): `web_agentic` (web search instead of the graph, same harness) and `kg_web_agentic` (both), to test
+whether the graph beats or complements open web search.
+
 Models: small Inkling-2-small and Qwen3.5-35B-A3B; large Qwen3.5-397B-A17B (same family as the small Qwen, so scale is
 compared without a family change). DeepSeek-V4-Pro is optional **[owner: budget]**.
 

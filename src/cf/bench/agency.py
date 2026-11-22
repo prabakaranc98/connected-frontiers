@@ -29,7 +29,7 @@ from cf.agent.kg import KG
 from cf.bench import guidance as G
 from cf.bench.sessions import _ok
 from cf.eval.stats import bootstrap
-from cf.llm.client import LLM, BudgetExceeded
+from cf.llm.client import AUTO, LLM, BudgetExceeded
 
 OUT = config.EVAL / "experiments"
 CACHE = config.EVAL / "cache" / "agency"
@@ -108,15 +108,22 @@ def curate(cands: list[dict], per_persona: int, rich: int, examiner: str = G.EXA
         if sum(x["stratum"] == c["stratum"] for x in keep[k]) >= want:
             continue
         a = kg.name(c["anchor"])
+        ck = CACHE / "examiner" / (hashlib.sha256(json.dumps([k, c["anchor"], c["template"], examiner, CURATE, WRITE]).encode()).hexdigest()[:24] + ".json")
         try:
-            cu = LLM(examiner).parse(CURATE.format(label=p["label"], background=p["background"], a=a), f"Subject: {a}",
-                                     Curate, "agency_curate", max_tokens=400, reasoning_max_tokens=0)
+            if ck.exists():                                  # reproducible task sets: the Examiner's outputs are cached
+                d = json.loads(ck.read_text())
+                cu, w = Curate(**d["curate"]), (Written(**d["written"]) if d.get("written") else None)
+            else:
+                cu = LLM(examiner).parse(CURATE.format(label=p["label"], background=p["background"], a=a), f"Subject: {a}",
+                                         Curate, "agency_curate", max_tokens=400, reasoning_max_tokens=0)
+                w = LLM(examiner).parse(WRITE.format(label=p["label"], background=p["background"],
+                                                     constraints=p["constraints"], a=a), c["template"], Written,
+                                        "agency_write", max_tokens=500, reasoning_max_tokens=0) if cu.meaningful else None
+                ck.parent.mkdir(parents=True, exist_ok=True)
+                ck.write_text(json.dumps({"curate": cu.model_dump(), "written": w.model_dump() if w else None}))
             if not cu.meaningful:
                 rejected.append({**c, "reason": f"curator: {cu.reason[:160]}"})
                 continue
-            w = LLM(examiner).parse(WRITE.format(label=p["label"], background=p["background"],
-                                                 constraints=p["constraints"], a=a), c["template"], Written,
-                                    "agency_write", max_tokens=500, reasoning_max_tokens=0)
         except BudgetExceeded:
             raise
         except RuntimeError as e:
@@ -208,7 +215,7 @@ def score(judge: str, role: str, task: dict, ans: dict, sheet: str) -> dict:
     sys_ = (PERSONA_JUDGE if role == "persona" else EXPERT_JUDGE).format(**p)
     cls = PersonaScores if role == "persona" else ExpertScores
     out = LLM(judge).parse(sys_, f"Question:\n{task['question']}\n\n{sheet}\n\nAdvice:\n{G._blind(ans)}", cls,
-                           f"agency_score_{role}", max_tokens=900, reasoning_max_tokens=0)
+                           f"agency_score_{role}", max_tokens=3000, reasoning_max_tokens=AUTO)
     return out.model_dump()
 
 
@@ -217,7 +224,7 @@ def prefer(judge: str, role: str, task: dict, a: dict, b: dict, sheet: str) -> d
     sys_ = (PERSONA_JUDGE if role == "persona" else EXPERT_JUDGE).format(**p) + \
         "\nNow compare two answers to the same question. Which is better for this person? Reason first."
     out = LLM(judge).parse(sys_, f"Question:\n{task['question']}\n\n{sheet}\n\nAnswer A:\n{G._blind(a)}\n\nAnswer B:\n{G._blind(b)}",
-                           Pref, f"agency_pair_{role}", max_tokens=700, reasoning_max_tokens=0)
+                           Pref, f"agency_pair_{role}", max_tokens=3000, reasoning_max_tokens=AUTO)
     return out.model_dump()
 
 
@@ -294,7 +301,8 @@ def run_experiment(cfg_path: str) -> dict:
     kg = KG()
     spend0 = LLM.spent_usd
     T = cfg["tasks"]
-    tasks, rejected = curate(candidates(T["personas"], T["per_persona"], T["rich"], T.get("seed", 13)),
+    over = T.get("oversample", 4)                         # curation rejects some; generate spares
+    tasks, rejected = curate(candidates(T["personas"], T["per_persona"] * over, T["rich"] * over, T.get("seed", 13)),
                              T["per_persona"], T["rich"])
     if T.get("split"):
         tasks = [t for t in tasks if t["split"] == T["split"]] or tasks

@@ -1,6 +1,9 @@
 """Generate docs/architecture.svg: the system as built (v0.1), planned parts dashed.
 
-    python scripts/make_architecture_svg.py docs/architecture.svg
+    uv run python scripts/make_architecture_svg.py docs/architecture.svg
+    # PNG at 2x for slides and posts:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --window-size=1400,960 \
+        --force-device-scale-factor=2 --hide-scrollbars --screenshot="$PWD/docs/architecture.png" "file://$PWD/docs/architecture.svg"
 
 Grid of 8 px; each box states one thing (a label and at most one hint).
 """

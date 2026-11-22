@@ -60,3 +60,27 @@ Prefer a separate key for this project with its own cap.
 - `published_at` extraction → time-based discovery tests (D1 forecast, D3 gap closure).
 - Graph query: model writes single-hop queries 98% of the time; test a worked multi-hop example in the tool description.
 - PraCha Labs site: a short project page linking to the explorer (optional).
+
+## Experiment: Connected Frontiers vs web search (owner idea, 2026-11-22)
+
+Does a curated, evidence-graded graph beat open web search as the agent's source, or do they complement each other?
+
+| Condition | Agent's tools |
+|---|---|
+| `kg_agentic` | the graph only (current) |
+| `web_agentic` | web search + page fetch only, same harness (plan → research → read → notes → advise) |
+| `kg_web_agentic` | both; findings record which source each came from |
+
+Fairness: same harness, prompts, models, step budget and output caps; judges blind to the source (citations stripped,
+URLs normalised); the symmetric fact sheet stays KB-based, so add a web-sourced fact card per named entity to avoid
+favouring the graph. Expected trade-offs to measure, not assume: the web is fresher and broader; the graph gives typed
+connections, evidence status and lower cost. Report: persona and expert judge preference, accuracy (false-claim rate),
+salient coverage, cost per answer, latency. Tool: a search API (e.g. Firecrawl or a provider web plugin); cost
+budgeted per query.
+
+## Hugging Face objects only partly attached (found 2026-11-22)
+
+The final build mapped 169 orgs to their Hub accounts (1,131 models listed) but captured 488 adapter rows: the Hub
+rate-limited the build's burst and the adapter read 429 as "no models". Fixed: requests back off and retry; the Hub data
+is being pre-fetched into the cache. Next: rebuild (~$0.2, HF phase then runs from cache) and the structured-vs-extracted
+ablation on that KB.

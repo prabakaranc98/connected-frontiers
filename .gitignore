@@ -36,3 +36,4 @@ data/kb/*/*
 !data/kb/*/report.md
 data/release/
 data/site/
+eval/cache/

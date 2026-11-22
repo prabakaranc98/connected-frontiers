@@ -16,6 +16,10 @@ profiles:                     # reasoning: 0 = off, N = token cap
   qwen/qwen3.5-35b-a3b:             {reasoning: 0}
   mistralai/mistral-small-2603:     {reasoning: 0}
   google/gemma-3-27b-it:            {reasoning: null}    # no reasoning parameter
+  z-ai/glm-5.3:                     {reasoning: 1000, reasoning_required: true}   # 400 if reasoning is disabled
+  nvidia/nemotron-3.5-super-vl:     {reasoning: 0}
+  google/gemma-4-26b-a4b-it:        {reasoning: null}
+  qwen/qwen3.5-397b-a17b:           {reasoning: 0}
 
 escalation:
   # Items that get a second, independent check before counting as support.
