@@ -1,0 +1,67 @@
+{
+ "version": "v20261122-0143",
+ "parent": "v20261122-0022",
+ "created_at": "2026-11-22T01:43:01+00:00",
+ "git_commit": "92a47fb-dirty",
+ "note": "v0.1.1: Hugging Face objects fully attached (171 orgs, 2,526 rows from cache)",
+ "counts": {
+  "entities": 16940,
+  "edges": 19812,
+  "verified_edges": 2363,
+  "segments": 149,
+  "hierarchy_links": 1848,
+  "pages": 1921,
+  "docs_edge_chunks": 19814,
+  "docs_chunks": 11806,
+  "docs_entity_chunks": 14842,
+  "docs_documents": 1854
+ },
+ "models": {
+  "extract": [
+   "thinkingmachines/inkling-2-mini",
+   "qwen/qwen3.5-35b-a3b"
+  ],
+  "verify": [
+   "deepseek/deepseek-v4.1-flash",
+   "mistralai/mistral-small-2603"
+  ],
+  "verify_escalate": [
+   "google/gemma-3-27b-it",
+   "qwen/qwen3.5-35b-a3b"
+  ],
+  "er_judge": [
+   "deepseek/deepseek-v4.1-flash",
+   "mistralai/mistral-small-2603"
+  ],
+  "reason": [
+   "thinkingmachines/inkling-2-small",
+   "qwen/qwen3.5-35b-a3b"
+  ]
+ },
+ "prompts": {
+  "extract": "87942facf5a1",
+  "verify": "9e120d7941eb"
+ },
+ "seeds_sha": "7b405699a0c8",
+ "crawl": {
+  "noise": {
+   "resolved_sites": 91,
+   "near_duplicate": 42,
+   "fetch_failed": 65,
+   "thin": 3
+  },
+  "errors": 0,
+  "batches": 39
+ },
+ "build": {
+  "legacy_migrated": 0,
+  "load_pages_s": 51.7,
+  "extract_verify_s": 0.6,
+  "adapters_rows": 2411,
+  "adapters_new_edges": 2371,
+  "graph_s": 84.1,
+  "er_s": 592.2,
+  "rank_layout_export_s": 1451.5,
+  "total_s": 2180.1
+ }
+}

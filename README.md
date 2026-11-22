@@ -11,17 +11,17 @@ What started as a curiosity is now an end-to-end system: curation and indexing o
 a harness for inference agents, task curation, and evaluation testbeds, used to test whether grounding
 in the graph actually helps people.
 
-**Status (2026-11-22):** v0.1. The crawl round is built into KB `v20261122-0022`. The agent harness was
+**Status (2026-11-22):** v0.1.1. The crawl round plus the Hugging Face objects are built into KB `v20261122-0143`. The agent harness was
 improved by a measured loop (held-out confirmed); the agency testbed (persona tasks, persona and expert
-LLM judges) is running its pilot. Everything below is measured, with intervals, and limits are stated.
+LLM judges) has run its pilot (results below). Everything below is measured, with intervals, and limits are stated.
 
 | v0.1 at a glance | |
 |---|---|
-| Graph (KB `v20261122-0022`) | 1,921 pages · 254 publishers · **15,544 entities · 17,930 edges** · 22,035 quoted claims · 133 segments · Hugging Face lineage for 169 mapped orgs (partly attached; see backlog) |
+| Graph (KB `v20261122-0143`) | 1,921 pages · 254 publishers · **16,940 entities · 19,812 edges** (2,363 verified) · 22,035 quoted claims · 149 segments · 2,411 Hugging Face rows (models, datasets, lineage) for 171 mapped orgs |
 | Truth (silver judges re-read the cited page) | verifier-accepted edges supported 93–97% · rejected ones 50% (the verifier is too strict) · ER accuracy 0.86 |
 | Grounded QA (10 sessions, KB `v20261121-1821`) | Inkling-2-small: graph tools **0.86** F1 vs **0.19** from memory (paired Δ +0.67 [+0.56, +0.76]) |
 | Harness improvement (14 held-out sessions) | schema card + longer neighbour lists: graph tools 0.71 → **0.94** F1, graph query 0.57 → **0.98** (Inkling); every interval above 0 |
-| Cost | **$8.9** of LLM spend in total, small open-weight models |
+| Cost | **$9.8** of LLM spend in total, small open-weight models |
 
 ![Architecture](docs/architecture.png)
 

@@ -78,9 +78,12 @@ connections, evidence status and lower cost. Report: persona and expert judge pr
 salient coverage, cost per answer, latency. Tool: a search API (e.g. Firecrawl or a provider web plugin); cost
 budgeted per query.
 
-## Hugging Face objects only partly attached (found 2026-11-22)
+## Hugging Face objects only partly attached (found 2026-11-22) · fixed in `v20261122-0143`
 
 The final build mapped 169 orgs to their Hub accounts (1,131 models listed) but captured 488 adapter rows: the Hub
 rate-limited the build's burst and the adapter read 429 as "no models". Fixed: requests back off and retry; the Hub data
 is being pre-fetched into the cache. Next: rebuild (~$0.2, HF phase then runs from cache) and the structured-vs-extracted
 ablation on that KB.
+
+**Done (2026-11-22):** rebuilt as `v20261122-0143`: 2,411 Hub rows, 2,371 new edges, verified edges 468 → 2,363.
+Still open: the structured-vs-extracted ablation, and re-running the agency tasks on the new KB.
