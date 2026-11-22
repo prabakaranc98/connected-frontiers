@@ -71,3 +71,25 @@ def test_stage_metrics_separate_retrieved_grounded_used(kg):
     m = R.stage_metrics(kg, run, g)
     assert (m["retrieved"], m["grounded"], m["used"], m["utilisation"], m["doubt"]) == (0.667, 0.333, 0.333, 0.5, 1)
     assert R.gold(kg, [{"top": {"relation": "builds_on", "type": "model", "k": 1}}])["entities"] == {"model:base"}
+
+
+def test_select_spreads_across_object_types_and_marks_key_facts(kg):
+    from cf.bench.guidance import _select
+    steps = [{"touched": {"edges": list(kg.edges)}}]
+    es = _select(kg, steps, "which methods and models", k=6, key=2)
+    types = [kg.ents[e["tail"]]["type"] for e in es[:3]]
+    assert len(set(types)) >= 2 and sum(e["_key"] for e in es) == 2
+
+
+def test_reading_list_is_rendered_and_counted_as_named():
+    from cf.bench.guidance import _blind, _names
+    a = {"summary": "s", "learn": [], "projects": [], "experiments": [], "stack": [],
+         "read": [{"title": "LoRA Without Regret", "kind": "paper", "why": "the practical recipe"}]}
+    assert "What to read first:" in _blind(a) and "LoRA Without Regret" in _names(a)
+
+
+def test_also_in_graph_lists_key_facts_the_answer_did_not_use(kg):
+    from cf.bench.guidance import also_in_graph
+    steps = [{"touched": {"edges": list(kg.edges)}}]
+    got = also_in_graph(kg, steps, "Alpha methods", {"stack": ["Alpha"], "learn": []})
+    assert got and all("Alpha" not in x["fact"] for x in got)

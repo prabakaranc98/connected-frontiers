@@ -149,8 +149,8 @@ def _key(task: dict, model: str, condition: str, trial: int = 0) -> str:
     extra = [trial] if trial else []                    # trial 0 keeps the keys of every earlier cached answer
     h = hashlib.sha256(json.dumps([task["question"], task["kb_version"], model, condition, *extra,
                                    HARNESS_VERSION if condition.startswith("kg_agentic") else
-                                   ENRICH_VERSION if condition == "kg_enrich" else
-                                   RAG_VERSION if condition == "kg_rag" else ""]).encode()).hexdigest()[:24]
+                                   ENRICH_VERSION if condition.startswith("kg_enrich") else
+                                   RAG_VERSION if condition.startswith("kg_rag") else ""]).encode()).hexdigest()[:24]
     return h
 
 
@@ -161,20 +161,21 @@ def answer(task: dict, model: str, condition: str, kg: KG, trial: int = 0) -> di
     if f.exists():
         return {**json.loads(f.read_text()), "cached": True, "trial": trial}
     t = {**task, "persona": task["persona"], "profile": personas()[task["persona"]]}
-    if condition.startswith("kg_agentic"):     # "kg_agentic+fit:read" = fit-first on, evidence gate off
-        head, _, offs = condition.partition(":")
-        on = frozenset(head.split("+")[1:])
-        off = frozenset(x for x in offs.split(",") if x)
-        r = {**G.run_agentic(model, t, kg, off=off, on=on), "condition": condition}
-    elif condition == "kg_rag":                # typical RAG: one retrieval pass, context in the prompt
-        r = G.run_rag(model, t, kg)
-    elif condition == "kg_enrich":             # memory-first: revise this model's own (cached) closed-book answer
-        draft = answer(task, model, "closed_book", kg, trial)
+    head, _, offs = condition.partition(":")         # "kg_agentic+reading+select:read" = switches on, harness parts off
+    base, on = head.split("+")[0], frozenset(head.split("+")[1:])
+    off = frozenset(x for x in offs.split(",") if x)
+    if base == "kg_agentic":
+        r = G.run_agentic(model, t, kg, off=off, on=on)
+    elif base == "kg_rag":                     # typical RAG: one retrieval pass, context in the prompt
+        r = G.run_rag(model, t, kg, on=on)
+    elif base == "kg_enrich":                  # memory-first: revise this model's own (cached) closed-book answer
+        draft = answer(task, model, "closed_book" + ("+reading" if "reading" in on else ""), kg, trial)
         if not draft.get("answer"):
             return {**draft, "condition": condition, "error": f"no draft: {draft.get('error')}"}
-        r = G.run_enrich(model, t, kg, draft)
+        r = G.run_enrich(model, t, kg, draft, on=on)
     else:
-        r = G.run(model, t, condition, kg)
+        r = G.run(model, t, base, kg, on=on)
+    r["condition"] = condition
     r["trial"] = trial
     if r.get("answer"):
         CACHE.mkdir(parents=True, exist_ok=True)

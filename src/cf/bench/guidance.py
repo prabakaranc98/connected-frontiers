@@ -70,6 +70,22 @@ class Guidance(_S):
 
 SCHEMA = strict_schema(Guidance)
 
+
+# ---- step switches (added one at a time, each measured): reading list · importance selection · justified names ----
+class ReadItem(_S):
+    title: str
+    kind: Literal["paper", "docs", "model", "dataset", "benchmark", "repository", "post"]
+    why: str
+
+
+class GuidanceR(Guidance):
+    read: list[ReadItem]
+
+
+SCHEMA_R = strict_schema(GuidanceR)
+READ_FMT = (" Also `read`: 2-5 things to read or open first (papers, docs, model cards, datasets, benchmarks, "
+            "repositories), each with its kind and one line on why it matters for this person.")
+
 PERSONAS = {
     "student": ("method", ("I'm a student who wants to get into {a}. Over the next 8 weeks, what should I learn first and in "
                           "what order, what should I build, and which small experiments should I run? Suggest a concrete "
@@ -93,7 +109,7 @@ FORMAT = ("Now give your advice as JSON: summary (2-3 sentences), learn (at most
           "title, what, stack of at most 6 tools, first_step), experiments (1-2: question, baseline, change, measure), stack "
           "(at most 8 tools and platforms), sources (edge ids you relied on, or [] if none). In the advice itself do not "
           "mention your tools, a graph or your sources; put sources only in `sources`.")
-CAPS = {"learn": 6, "stack": 8, "projects": 3, "experiments": 2}
+CAPS = {"learn": 6, "stack": 8, "projects": 3, "experiments": 2, "read": 5}
 
 
 def _cap(a: dict) -> dict:
@@ -224,7 +240,7 @@ def examine(per_persona: int = 6, rich: int = 4, seed: int = 13) -> tuple[list[d
     return acc, rejected
 
 
-def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> dict:
+def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14, on: frozenset = frozenset()) -> dict:
     llm = LLM(model)
     t0, _spend0 = time.time(), LLM.spent_usd
     grounded = condition == "kg_tools"
@@ -265,9 +281,11 @@ def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> 
         break
     answer = None
     if not err:
-        msgs += [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT}]
+        rd = "reading" in on
+        msgs += [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT + (READ_FMT if rd else "")}]
         try:
-            m2, _ = llm.chat(msgs, name=f"guidance_{condition}_format", max_tokens=3000, reasoning_max_tokens=AUTO, schema=SCHEMA)
+            m2, _ = llm.chat(msgs, name=f"guidance_{condition}_format", max_tokens=3000, reasoning_max_tokens=AUTO,
+                             schema=SCHEMA_R if rd else SCHEMA)
             answer = _cap(json.loads(m2.get("content") or "{}"))
         except BudgetExceeded:
             raise
@@ -315,6 +333,10 @@ class AgenticGuidance(_S):
     experiments: list[Experiment]
     stack: list[str]
     sources: list[str]
+
+
+class AgenticGuidanceR(AgenticGuidance):
+    read: list[ReadItem]
 
 
 PLAN = ("You are preparing advice for the person below. Before answering, plan research in a knowledge graph of the "
@@ -500,7 +522,47 @@ def _facts(kg: KG, steps: list[dict], k: int = 30, query: str = "") -> list[dict
     return es[:k]
 
 
-def _facts_block(kg: KG, steps: list[dict], k: int = 30, query: str = "") -> str:
+def _select(kg: KG, steps: list[dict], query: str, k: int = 24, key: int = 8) -> list[dict]:
+    """Importance selection (step 2): relevance to the question + evidence (status, publishers) + centrality of the far
+    entity, then spread across object types round-robin, so models, papers, tools and benchmarks all get a slot."""
+    import math
+    cand = _facts(kg, steps, 120, query)
+    linked = {x["id"] for x in kg.link(query)} if query else set()
+    linked |= {t for x in list(linked) for t in kg.twins(x)}
+    words = set(_W.findall(query.lower()))
+    pr = max((e.get("pagerank") or 0) for e in kg.ents.values()) or 1
+
+    def far(e):
+        return e["tail"] if e["head"] in linked else e["head"] if e["tail"] in linked else e["tail"]
+
+    def score(e):
+        pubs = len({v.get("publisher") for v in e.get("evidence") or []})
+        return (_relevance(kg, e, words, linked) + ST.index(e["status"]) / 2 + 0.5 * math.log1p(pubs)
+                + 2 * (kg.ents[far(e)].get("pagerank") or 0) / pr)
+    by_type: dict[str, list[dict]] = {}
+    for e in sorted(cand, key=lambda e: -score(e)):
+        by_type.setdefault(kg.ents[far(e)]["type"], []).append(e)
+    out: list[dict] = []
+    while len(out) < k and any(by_type.values()):
+        for t in list(by_type):
+            if by_type[t] and len(out) < k:
+                out.append(by_type[t].pop(0))
+    for i, e in enumerate(out):
+        e["_key"] = i < key
+    return out
+
+
+def _facts_block(kg: KG, steps: list[dict], k: int = 30, query: str = "", select: bool = False) -> str:
+    if select:
+        es = _select(kg, steps, query)
+        if not es:
+            return ""
+        lines = [f"- {'KEY ' if e.get('_key') else ''}[{e['id']}] {kg.name(e['head'])} {e['relation'].replace('_', ' ')} "
+                 f"{kg.name(e['tail'])} ({e['status']}, {len({v.get('publisher') for v in e.get('evidence') or []})} publisher(s))"
+                 for e in es]
+        return ("\n\nFacts you retrieved, chosen for importance and spread across kinds of object (models, papers, tools, "
+                "benchmarks, datasets, organisations). Consider every KEY fact: use it if it matters for this person, or "
+                "leave it out deliberately. Cite edge ids:\n" + "\n".join(lines))
     es = _facts(kg, steps, k, query)
     if not es:
         return ""
@@ -508,6 +570,24 @@ def _facts_block(kg: KG, steps: list[dict], k: int = 30, query: str = "") -> str
              f"({e['status']}, {len({v.get('publisher') for v in e.get('evidence') or []})} publisher(s))" for e in es]
     return ("\n\nFacts you retrieved, most relevant to the question first (use the ones that matter for this person; cite their ids):\n"
             + "\n".join(lines))
+
+
+READ_ADVISE = ("\nAlso give `read`: 2-5 things to read or open first (papers, docs, model cards, datasets, benchmarks, "
+               "repositories), preferring ones from your findings, each with its kind and why it matters for this person.")
+JUSTIFY = ("\nEvery specific name in learn, projects, stack and read must either come from a finding (cite it in "
+           "based_on) or be standard, well-known practice for this person's level. Drop names you cannot justify for "
+           "this person; a shorter answer built on the key facts is better than a long list.")
+
+
+def also_in_graph(kg: KG, steps: list[dict], query: str, answer: dict, k: int = 8) -> list[dict]:
+    """KEY facts the answer did not use: shown beside the answer ("also in the graph"), never part of the judged text."""
+    named = {x for n in _names(answer or {}) if (x := _resolve(kg, n))}
+    out = []
+    for e in _select(kg, steps, query):
+        if e.get("_key") and not ({e["head"], e["tail"]} & named):
+            out.append({"edge_id": e["id"], "fact": f"{kg.name(e['head'])} {e['relation'].replace('_', ' ')} {kg.name(e['tail'])}",
+                        "status": e["status"]})
+    return out[:k]
 
 
 def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozenset = frozenset(),
@@ -527,7 +607,10 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
             {"role": "user", "content": task["question"]}]
     steps: list[dict] = []
     err, plan, notes, answer, prose, gates = None, [], [], None, "", {"read_gate": False, "reflection": [], "revised": False}
-    notes_prompt = lambda: NOTES + ("" if "facts" in off else _facts_block(kg, steps, query=task["question"] + " " + " ".join(plan))) + "\n" + NOT_COVERED
+    sel, rd, jus = "select" in on, "reading" in on, "justify" in on
+    gcls = AgenticGuidanceR if rd else AgenticGuidance
+    notes_prompt = lambda: NOTES + ("" if "facts" in off else _facts_block(kg, steps, query=task["question"] + " " + " ".join(plan),
+                                                                            select=sel)) + "\n" + NOT_COVERED
     try:
         if "plan" not in off:
             m, _ = llm.chat(msgs + [{"role": "user", "content": PLAN}], name="guidance_agentic_plan", max_tokens=800,
@@ -552,14 +635,14 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
                          + "; ".join(f"{i}. {plan[i - 1]}" for i in missing) + ". Research just these, then summarise."})
             prose += "\n" + _tool_loop(llm, msgs, kg, steps, 8, "guidance_agentic_reflect", tools)
         msgs += [{"role": "user", "content": notes_prompt()}, {"role": "assistant", "content": json.dumps({"findings": notes})}]
-        advise_prompt = (ADVISE_FIT if fit else ADVISE) + "\n" + NOT_COVERED
-        answer = _structured(llm, msgs + [{"role": "user", "content": advise_prompt}], AgenticGuidance, "guidance_agentic_advise")
+        advise_prompt = (ADVISE_FIT if fit else ADVISE) + (READ_ADVISE if rd else "") + (JUSTIFY if jus else "") + "\n" + NOT_COVERED
+        answer = _structured(llm, msgs + [{"role": "user", "content": advise_prompt}], gcls, "guidance_agentic_advise")
         unlinked = [p_["title"] for p_ in answer.get("projects") or [] if not p_.get("based_on")]
         if "revise" not in off and answer.get("projects") and len(unlinked) > len(answer["projects"]) / 2:   # synthesis check
             gates["revised"] = True
             msgs += [{"role": "user", "content": advise_prompt}, {"role": "assistant", "content": json.dumps(answer)},
                      {"role": "user", "content": REVISE.format(titles="; ".join(unlinked))}]
-            answer = _structured(llm, msgs, AgenticGuidance, "guidance_agentic_revise")
+            answer = _structured(llm, msgs, gcls, "guidance_agentic_revise")
         if fit:                                                                     # prerequisite gate
             ctx = msgs + [{"role": "user", "content": advise_prompt}, {"role": "assistant", "content": json.dumps(answer)}]
             chk = _structured(llm, ctx + [{"role": "user", "content": PREREQ}], PrereqCheck, "guidance_agentic_prereq").get("checks", [])
@@ -567,7 +650,7 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
             gates["prereq_gaps"] = gaps
             if gaps:
                 answer = _structured(llm, ctx + [{"role": "user", "content": PREREQ_REVISE.format(gaps="; ".join(gaps[:8]))}],
-                                     AgenticGuidance, "guidance_agentic_prereq_revise")
+                                     gcls, "guidance_agentic_prereq_revise")
         answer = _cap(answer)
     except BudgetExceeded:
         raise
@@ -587,6 +670,7 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
            "kb_version": kg.kb_version,
            "run_id": trace.RUN_ID, "plan": plan, "notes": notes,
            "gates": gates, "answer": answer, "steps": steps, "prose": prose[:6000], "error": err, "metrics": met,
+           "also_in_graph": also_in_graph(kg, steps, task["question"], answer) if (answer and jus) else None,
            "stratum": task.get("stratum"), "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"guidance": task["id"], "model": model, "condition": "kg_agentic", "metrics": met, "gates": gates})
     return out
@@ -620,6 +704,10 @@ class EnrichedGuidance(_S):
     changes: list[Change]
 
 
+class EnrichedGuidanceR(EnrichedGuidance):
+    read: list[ReadItem]
+
+
 CHECKS = ("Here is a draft of your advice, written from your own knowledge:\n{draft}\n\nList 5-8 things in it that a "
           "knowledge graph of the AI ecosystem could confirm, correct or sharpen: named tools, organisations, datasets "
           "and benchmarks (kind `name`); factual claims about who uses or offers what (kind `fact`); and always one "
@@ -643,7 +731,7 @@ ENRICH = ("Now revise the draft. Keep its structure, its learning path and its p
           "experiments 1-2, stack ≤ 8. Do not mention your tools or a graph in the text; put edge ids only in `sources`.")
 
 
-def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14) -> dict:
+def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14, on: frozenset = frozenset()) -> dict:
     """Memory-first: `draft` is this model's closed-book answer (the same one the closed-book condition is scored
     on), so the comparison isolates what grounding changes. Returns the revised answer plus the recorded diff."""
     llm = LLM(model)
@@ -663,11 +751,14 @@ def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14)
         msgs.append({"role": "user", "content": ENRICH_RESEARCH + "\n\nItems:\n" +
                      "\n".join(f"{i + 1}. [{c['kind']}] {c['claim']} → look up: {c['lookup']}" for i, c in enumerate(checks))})
         prose = _tool_loop(llm, msgs, kg, steps, max_steps, "guidance_enrich_research", AGENT_SPECS)
-        np_ = NOTES + _facts_block(kg, steps, query=task["question"] + " " + " ".join(c.get("claim", "") for c in checks)) + "\n" + NOT_COVERED
+        sel, rd, jus = "select" in on, "reading" in on, "justify" in on
+        q_ = task["question"] + " " + " ".join(c.get("claim", "") for c in checks)
+        np_ = NOTES + _facts_block(kg, steps, query=q_, select=sel) + "\n" + NOT_COVERED
         notes = _structured(llm, msgs + [{"role": "user", "content": np_}], Notes, "guidance_enrich_notes").get("findings", [])[:10]
         msgs += [{"role": "user", "content": np_}, {"role": "assistant", "content": json.dumps({"findings": notes})},
-                 {"role": "user", "content": "The draft again:\n" + _blind(d) + "\n\n" + ENRICH}]
-        answer = _structured(llm, msgs, EnrichedGuidance, "guidance_enrich_revise")
+                 {"role": "user", "content": "The draft again:\n" + _blind(d) + "\n\n" + ENRICH
+                  + (" Keep or improve the draft's `read` list the same way." + READ_ADVISE if rd else "") + (JUSTIFY if jus else "")}]
+        answer = _structured(llm, msgs, EnrichedGuidanceR if rd else EnrichedGuidance, "guidance_enrich_revise")
         changes = answer.pop("changes", [])
         answer = _cap(answer)
     except BudgetExceeded:
@@ -686,6 +777,7 @@ def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14)
     out = {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model,
            "condition": "kg_enrich", "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "plan": [c.get("claim") for c in checks],
            "checks": checks, "notes": notes, "changes": changes, "draft": d, "answer": answer, "steps": steps,
+           "also_in_graph": also_in_graph(kg, steps, task["question"], answer) if (answer and "justify" in on) else None,
            "prose": prose[:6000], "error": err, "metrics": met, "stratum": task.get("stratum"),
            "cost_usd": round(llm.spent + (draft.get("cost_usd") or 0), 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"guidance": task["id"], "model": model, "condition": "kg_enrich", "metrics": met})
@@ -724,7 +816,7 @@ def rag_context(kg: KG, question: str, per_entity: int = 12, k_passages: int = 6
                           "chunks": [p_["chunk_id"] for p_ in st.get("passages") or []]}
 
 
-def run_rag(model: str, task: dict, kg: KG) -> dict:
+def run_rag(model: str, task: dict, kg: KG, on: frozenset = frozenset()) -> dict:
     llm = LLM(model)
     t0 = time.time()
     ctx, touched = rag_context(kg, task["question"])
@@ -733,8 +825,9 @@ def run_rag(model: str, task: dict, kg: KG) -> dict:
     try:
         m, _ = llm.chat(msgs, name="guidance_rag", max_tokens=3500, reasoning_max_tokens=AUTO)
         prose = m.get("content") or ""
-        m2, _ = llm.chat(msgs + [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT}],
-                         name="guidance_rag_format", max_tokens=3000, reasoning_max_tokens=AUTO, schema=SCHEMA)
+        rd = "reading" in on
+        m2, _ = llm.chat(msgs + [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT + (READ_FMT if rd else "")}],
+                         name="guidance_rag_format", max_tokens=3000, reasoning_max_tokens=AUTO, schema=SCHEMA_R if rd else SCHEMA)
         answer = _cap(json.loads(m2.get("content") or "{}"))
     except BudgetExceeded:
         raise
@@ -750,7 +843,7 @@ def run_rag(model: str, task: dict, kg: KG) -> dict:
 
 # ---- deterministic, KB-checkable metrics -------------------------------------------------------------------
 def _names(a: dict) -> list[str]:
-    names = list(a.get("stack") or []) + list(a.get("learn") or [])
+    names = list(a.get("stack") or []) + list(a.get("learn") or []) + [r_.get("title", "") for r_ in a.get("read") or []]
     for p in a.get("projects") or []:
         names += list(p.get("stack") or [])
     return [n.strip() for n in names if n and n.strip()]
@@ -841,6 +934,8 @@ def _blind(a: dict) -> str:
     for e in a.get("experiments") or []:
         L += [f"- {e.get('question', '')}", (f"  Baseline: {e.get('baseline', '')} · Change: {e.get('change', '')} · "
                                              f"Measure: {e.get('measure', '')}")]
+    if a.get("read"):
+        L += ["", "What to read first:"] + [f"- {r_.get('title', '')} ({r_.get('kind', '')}): {r_.get('why', '')}" for r_ in a["read"]]
     L += ["", "Stack: " + ", ".join(a.get("stack") or [])]
     text = "\n".join(L)
     text = _LEAK.sub("", _CITE.sub("", text))
