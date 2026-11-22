@@ -196,6 +196,24 @@ The full trajectories (plan, every tool call, findings with edge ids, advice, ju
 `cf experiment` to `eval/experiments/<name>/<stamp>/` and packaged by `cf release` as `runs/agency_trajectories`
 and `labels/agency_judgments` for the Hugging Face collection (pushed privately, on approval).
 
+### Retrieval, grounding and use (agentic GraphRAG)
+
+On 6 hand-written questions, each condition is scored at three stages against question-aware gold facts
+([docs/RETRIEVAL.md](docs/RETRIEVAL.md)):
+
+| Condition | retrieved | grounded | used in answer |
+|---|---|---|---|
+| typical GraphRAG (one pass, packed context) | 0.18 | – | 0.09 |
+| plain tool loop | 0.65 | – | 0.12 |
+| agentic harness, start → after fixes | 0.61 → **0.76** | 0.33 → 0.44 | 0.14 → 0.21 |
+| memory-first (draft, then check and add) | 0.60 → 0.68 | 0.45 → 0.50 | 0.18 → **0.29** |
+
+Typical GraphRAG ranks facts without the question in mind, so it retrieves the wrong ones. Agents retrieve most of
+the gold but use little of it: the bottleneck is selection and synthesis, not retrieval. Fixes so far: a ranking tool,
+entity linking, broader entities for thin nodes, merging org/technology twins left by entity resolution (395 names),
+handing retrieved facts to the notes step, and the rule that "not in the graph" is not "false". One trial per cell;
+differences under about 0.1 are noise.
+
 ## Quickstart
 
 Requires Python ≥ 3.11 and [uv](https://docs.astral.sh/uv/).
@@ -258,6 +276,7 @@ connected-frontiers/
 | [PROBLEM.md](PROBLEM.md) | north star, user, task, objective: the eight objects |
 | [docs/DESIGN.md](docs/DESIGN.md) | **layered architecture** (acquire → extract/verify → curate → represent → use → evaluate → release), crawl algorithm, understanding views |
 | [docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md) | persona-based evaluation of guidance: task curation, judges, judge validation, hypotheses |
+| [docs/RETRIEVAL.md](docs/RETRIEVAL.md) | **agentic GraphRAG vs typical GraphRAG vs tool loop**: retrieved → grounded → used, what was fixed, references |
 | [docs/DISCOVERY.md](docs/DISCOVERY.md) | opportunity discovery and education uses (owner priorities) |
 | [EVAL.md](EVAL.md) | metrics, frozen test sets, baselines, results log |
 | [docs/EVIDENCE.md](docs/EVIDENCE.md) | truth vs claim: evidence grading, Reasoner wording rules |
@@ -277,3 +296,22 @@ connected-frontiers/
   failures are logged.
 - **Polite crawling.** Respect robots.txt, rate-limit requests, cache raw pages, no logins, and no
   personal data.
+
+## References
+
+GraphRAG and retrieval work this project builds on or compares against (ids verified on arXiv, 2026-11-22; full
+list with mechanisms in [docs/RETRIEVAL.md](docs/RETRIEVAL.md#references)):
+Edge et al. 2024, *GraphRAG* ([2404.16130](https://arxiv.org/abs/2404.16130)) ·
+Gutiérrez et al. 2024/2025, *HippoRAG* and *HippoRAG 2* ([2405.14831](https://arxiv.org/abs/2405.14831), [2502.14802](https://arxiv.org/abs/2502.14802)) ·
+Sun et al. 2023, *Think-on-Graph* ([2307.07697](https://arxiv.org/abs/2307.07697)) ·
+Luo et al. 2023, *Reasoning on Graphs* ([2310.01061](https://arxiv.org/abs/2310.01061)) ·
+Jiang et al. 2024, *KG-Agent* ([2402.11163](https://arxiv.org/abs/2402.11163)) ·
+Jin et al. 2024, *Graph Chain-of-Thought* ([2404.07103](https://arxiv.org/abs/2404.07103)) ·
+Guo et al. 2024, *LightRAG* ([2410.05779](https://arxiv.org/abs/2410.05779)) ·
+Peng et al. 2024, *Graph RAG survey* ([2408.08921](https://arxiv.org/abs/2408.08921)) ·
+Singh et al. 2025, *Agentic RAG survey* ([2501.09136](https://arxiv.org/abs/2501.09136)) ·
+Yao et al. 2022, *ReAct* ([2210.03629](https://arxiv.org/abs/2210.03629)) ·
+Asai et al. 2023, *Self-RAG* ([2310.11511](https://arxiv.org/abs/2310.11511)) ·
+Liu et al. 2023, *Lost in the Middle* ([2307.03172](https://arxiv.org/abs/2307.03172)) ·
+Ru et al. 2024, *RAGChecker* ([2408.08067](https://arxiv.org/abs/2408.08067)) ·
+Andersen, Chung, Lang 2006, *PPR push* ([doi](https://doi.org/10.1109/FOCS.2006.44)).

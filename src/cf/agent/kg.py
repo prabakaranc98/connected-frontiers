@@ -9,6 +9,7 @@ from __future__ import annotations
 import heapq
 import itertools
 import json
+import re
 from pathlib import Path
 
 import networkx as nx
@@ -19,6 +20,14 @@ from cf.resolve.er import normalize
 
 GRAPH = config.DATA / "processed" / "graph" / "graph.json"   # fallback when no KB version exists
 ST = ["unsupported", "claimed", "confirmed", "corroborated", "verified"]
+
+
+# common abbreviations inside method and technology names, for broadening a thin node ("agentic RL" → reinforcement learning)
+_ABBR = {"rl": "reinforcement learning", "sft": "supervised fine-tuning", "ft": "fine-tuning", "rag": "retrieval-augmented generation",
+         "llm": "large language model", "llms": "large language models", "kd": "knowledge distillation", "peft": "parameter-efficient fine-tuning"}
+_STOP = {"the", "and", "for", "with", "what", "which", "who", "how", "our", "your", "want", "should", "would",
+         "about", "this", "that", "from", "into", "they", "their", "them", "have", "has", "are", "was", "can", "use", "build",
+         "model", "models", "team", "data", "agent", "agents", "company", "companies", "project", "projects", "learn"}
 
 
 class KG:
@@ -42,6 +51,7 @@ class KG:
         self.empty_hints = False              # harness switch: say what DOES exist when a query finds nothing
         self.truncation_notice = False        # harness switch: say how many edges a list left out
         self.neighbor_limit = 25
+        self.merge_twins = False              # harness switch: neighbors also returns the same-name entity of another type
         self._nx = None
 
     # ---- helpers --------------------------------------------------------------------------
@@ -106,7 +116,8 @@ class KG:
 
     def _edge_view(self, e: dict, focus: str | None = None) -> dict:
         d = {"edge_id": e["id"], "head": self.name(e["head"]), "relation": e["relation"], "tail": self.name(e["tail"]),
-             "status": e["status"], "strength": e["strength"]}
+             "status": e["status"], "strength": e["strength"],
+             "publishers": len({x.get("publisher") for x in e.get("evidence") or []})}
         if e.get("attrs"):
             d["attrs"] = e["attrs"]
         if focus:
@@ -115,8 +126,14 @@ class KG:
 
     # ---- tools ------------------------------------------------------------------------------
     def find_entity(self, name: str, type: str | None = None, k: int = 5) -> list[dict]:
-        return [{"id": eid, "name": self.name(eid), "type": self.ents[eid]["type"], "match": round(s, 2),
-                 "ppr": round(self.ents[eid].get("ppr") or 0, 4)} for s, eid in self.match(name, k, type)]
+        out = []
+        for s, eid in self.match(name, k, type):
+            d = {"id": eid, "name": self.name(eid), "type": self.ents[eid]["type"], "match": round(s, 2),
+                 "edges": self.degree(eid), "ppr": round(self.ents[eid].get("ppr") or 0, 4)}
+            if self.twins(eid):
+                d["same_name_other_type"] = self.twins(eid)
+            out.append(d)
+        return out
 
     def neighbors(self, id: str, relation: str | None = None, direction: str = "both",
                   min_status: str = "claimed", limit: int | None = None) -> list[dict]:
@@ -124,13 +141,19 @@ class KG:
             return [{"error": f"unknown id {id}; use find_entity first"}]
         lo = ST.index(min_status) if min_status in ST else 1
         out = []
-        for eid in self.adj.get(id, []):
-            e = self.edges[eid]
-            if ST.index(e["status"]) < lo or (relation and e["relation"] != relation):
-                continue
-            if direction == "out" and e["head"] != id or direction == "in" and e["tail"] != id:
-                continue
-            out.append(self._edge_view(e, focus=id))
+        for node in [id] + (self.twins(id) if self.merge_twins else []):
+            for eid in self.adj.get(node, []):
+                e = self.edges[eid]
+                if ST.index(e["status"]) < lo or (relation and e["relation"] != relation):
+                    continue
+                if direction == "out" and e["head"] != node or direction == "in" and e["tail"] != node:
+                    continue
+                if e["head"] in (id, *self.twins(id)) and e["tail"] in (id, *self.twins(id)):
+                    continue                                   # a twin linked to itself says nothing
+                v = self._edge_view(e, focus=node)
+                if node != id:
+                    v["via_twin"] = node                       # same name, other type (e.g. the product of this org)
+                out.append(v)
         limit = limit or self.neighbor_limit
         res = sorted(out, key=lambda x: -x["strength"])[:limit]
         if self.truncation_notice and len(out) > limit:
@@ -138,7 +161,50 @@ class KG:
                         "relations_here": self.relations_at(id)})
         if self.empty_hints and not out:
             res.append({"note": "no edges match", "relations_here": self.relations_at(id)})
+        if self.empty_hints and self.degree(id) < 5 and (b := self.broader(id)):
+            res.append({"note": f"thin node ({self.degree(id)} edges): the graph covers this mostly under broader "
+                                "entities; look there too", "broader": b})
         return res
+
+    def twins(self, id: str) -> list[str]:
+        """Same name, other entity type: the org/product split ER leaves in place (vLLM is org:vllm with 272 edges and
+        technology:vllm with 23; Cursor, GitHub, Slack, Modal... 395 names on 2026-11-22). Tools merge them at query
+        time so evidence about one thing is not split across two nodes."""
+        if getattr(self, "_twins", None) is None:
+            by: dict[str, list[str]] = {}
+            for x, e in self.ents.items():
+                by.setdefault(e["name"].strip().lower(), []).append(x)
+            self._twins = {x: [y for y in ids if y != x] for ids in by.values() if len(ids) > 1 for x in ids}
+        return self._twins.get(id, [])
+
+    def degree(self, id: str) -> int:
+        return sum(1 for y in self.adj.get(id, []) if self.edges[y]["status"] != "unsupported")
+
+    def broader(self, id: str, k: int = 4) -> list[dict]:
+        """Better-connected, more general entities for a thin node: hierarchy parents and subtype_of targets, then the
+        name's head noun with modifiers dropped and abbreviations expanded ("agentic RL" → "RL" → reinforcement
+        learning; "RL post-training" → post-training). Found on 2026-11-22: the agent stopped at a 1-edge node."""
+        if id not in self.ents:
+            return []
+        cand: list[str] = [h["parent"] for h in self.g.get("hierarchy", []) if h["child"] == id]
+        cand += [self.edges[i]["tail"] for i in self.adj.get(id, []) if self.edges[i]["relation"] == "subtype_of"
+                 and self.edges[i]["head"] == id]
+        words = self.name(id).split()
+        typ = self.ents[id]["type"]
+        for i in range(len(words)):
+            tail = words[i:]
+            for variant in (tail, [_ABBR.get(w.lower(), w) for w in tail]):
+                x = self.exact(" ".join(variant), typ) or self.exact(" ".join(variant))
+                if x and x != id:
+                    cand.append(x)
+            if len(tail) > 1:                              # also the first content word ("RL post-training" → RL)
+                x = self.exact(_ABBR.get(tail[0].lower(), tail[0]), typ)
+                if x and x != id:
+                    cand.append(x)
+        mine = self.degree(id)
+        out = [{"id": x, "name": self.name(x), "type": self.ents[x]["type"], "edges": self.degree(x)}
+               for x in dict.fromkeys(cand) if self.degree(x) > mine]
+        return sorted(out, key=lambda d: -d["edges"])[:k]
 
     def relations_at(self, id: str) -> list[str]:
         """What exists at a node: 'direction relation → other type (count)', for recovering from empty queries."""
@@ -257,6 +323,66 @@ class KG:
             return [{"error": "no path"}]
         return out
 
+    def top(self, relation: str, direction: str = "in", type: str | None = None, k: int = 10,
+            min_status: str = "claimed") -> dict:
+        """Rank entities by how many distinct others connect to them by `relation` (direction "in": X is the
+        tail, e.g. most built-on models, most-used methods, roles with most hirers; "out": X is the head, e.g.
+        orgs using the most methods). Answers "which ... most / most common" questions in one call."""
+        lo = ST.index(min_status) if min_status in ST else 1
+        acc: dict[str, dict] = {}
+        for e in self.edges.values():
+            if e["relation"] != relation or ST.index(e["status"]) < lo:
+                continue
+            x, other = (e["tail"], e["head"]) if direction == "in" else (e["head"], e["tail"])
+            if type and self.ents[x]["type"] != type:
+                continue
+            a = acc.setdefault(x, {"others": {}, "edges": []})
+            a["others"][other] = max(a["others"].get(other, 0), e["strength"])
+            a["edges"].append(e["id"])
+        if not acc:
+            return {"results": [], "note": f"no {relation!r} edges" + (f" into type {type!r}" if type else ""),
+                    "relations": sorted({e["relation"] for e in self.edges.values()})}
+        ranked = sorted(acc.items(), key=lambda kv: (-len(kv[1]["others"]), -(self.ents[kv[0]].get("pagerank") or 0)))[:k]
+        return {"relation": relation, "direction": direction, "results": [
+            {"id": x, "name": self.name(x), "type": self.ents[x]["type"], "count": len(a["others"]),
+             "top_connected": [self.name(o) for o, _ in sorted(a["others"].items(), key=lambda kv: -kv[1])[:5]],
+             "example_edge_ids": a["edges"][:3]} for x, a in ranked]}
+
+    def link(self, text: str, k: int = 8) -> list[dict]:
+        """Entity linking for a question: exact KB names in the text (longest n-grams first), with type and how
+        many supported edges each has. Used before planning so research starts from the right entities."""
+        words = re.findall(r"[A-Za-z0-9][\w.+&'-]*", text)
+        found: dict[str, int] = {}
+        used = [False] * len(words)
+        for n in (5, 4, 3, 2, 1):
+            for i in range(len(words) - n + 1):
+                if any(used[i:i + n]):
+                    continue
+                g = " ".join(words[i:i + n])
+                if len(g) < 3 or (n == 1 and g.lower() in _STOP):
+                    continue
+                x = self.exact(g)
+                if x and self.ents[x]["type"] in ("org", "model", "method", "technology", "benchmark", "role", "dataset", "problem"):
+                    found.setdefault(x, i)
+                    used[i:i + n] = [True] * n
+        out = [{"id": x, "name": self.name(x), "type": self.ents[x]["type"],
+                "edges": sum(1 for y in self.adj.get(x, []) if self.edges[y]["status"] != "unsupported")} for x in found]
+        return sorted(out, key=lambda d: -d["edges"])[:k]
+
+    def coverage_card(self) -> str:
+        """What the graph covers, so an agent can tell 'not covered' from 'false'."""
+        c: dict[str, int] = {}
+        for e in self.ents.values():
+            c[e["type"]] = c.get(e["type"], 0) + 1
+        plural = {"technology": "technologies"}
+        top = ", ".join(f"{n:,} {plural.get(t, t + 's')}" for t, n in sorted(c.items(), key=lambda x: -x[1])[:9])
+        return ("Coverage: the graph was built from about 1,900 crawled pages of AI organisations (their own sites, "
+                f"blogs, docs, careers pages) plus Hugging Face metadata: {top}. It is a sample, not the whole field. "
+                "If a lookup finds nothing, the graph does not cover it; that is not evidence that something is false, "
+                "rare or unverified. Status says how well an edge is supported: claimed (one source, often the "
+                "organisation itself), confirmed (by the other party), corroborated (by independent publishers), "
+                "verified (structured data, e.g. Hugging Face).")
+
     # ---- document tools (GraphRAG) ---------------------------------------------------------
     @property
     def rag(self):
@@ -325,7 +451,18 @@ TOOL_SPECS = [
      "parameters": {"type": "object", "properties": {"chunk_id": {"type": "string"}}, "required": ["chunk_id"]}}},
 ]
 
+TOP_SPEC = {"type": "function", "function": {"name": "top", "description": "Rank entities by how many distinct others connect "
+            "to them by one relation. direction 'in' = most targeted (e.g. relation='builds_on', type='model': the most built-on base "
+            "models; relation='uses_method', type='method': the most used methods; relation='hires_for', type='role': roles with most "
+            "hirers). direction 'out' = most active sources. Use it for 'which ... most / most common / who leads' questions.",
+            "parameters": {"type": "object", "properties": {"relation": {"type": "string"}, "direction": {"type": "string", "enum": ["in", "out"]},
+                           "type": {"type": "string"}, "k": {"type": "integer"}, "min_status": {"type": "string", "enum": ST}},
+                           "required": ["relation"]}}}
+
 # graph_query is its own condition: kept out of kg_tools so the two retrieval modes stay comparable
 _ALL_SPECS = TOOL_SPECS
 TOOL_SPECS = [t for t in _ALL_SPECS if t["function"]["name"] != "graph_query"]
+# the agentic harnesses get everything: multi-hop typed queries and ranking as well as the lookup tools
+AGENT_SPECS = _ALL_SPECS + [TOP_SPEC]
+AGENT_TOOL_NAMES = {t["function"]["name"] for t in AGENT_SPECS}
 QUERY_SPECS = [t for t in _ALL_SPECS if t["function"]["name"] in ("find_entity", "graph_query", "evidence", "segment")]

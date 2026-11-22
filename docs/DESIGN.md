@@ -406,7 +406,7 @@ needs the KB-time joins: edge → chunk (the evidence quote's offset; 96.5% link
 *use* X" and "which orgs *offer* X" pull the same neighbourhood, and "those orgs → their methods →
 benchmarks" is not followed. `kg_tools` and `graph_query` exist for that.
 
-Prior art these follow (unverified until read): HippoRAG (PPR over a KG), Microsoft GraphRAG
+Prior art these follow (arXiv ids verified 2026-11-22, see [RETRIEVAL.md](RETRIEVAL.md#references); content unverified until read): HippoRAG (PPR over a KG), Microsoft GraphRAG
 (community summaries), Think-on-Graph (LLM-steered graph search), Text2Cypher (model-written queries).
 
 ### 5.2 Examiner: building tested tasks from a release

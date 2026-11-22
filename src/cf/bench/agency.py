@@ -33,8 +33,9 @@ from cf.llm.client import AUTO, LLM, BudgetExceeded
 
 OUT = config.EVAL / "experiments"
 CACHE = config.EVAL / "cache" / "agency"
-HARNESS_VERSION = "agentic-v2"            # bump when run_agentic's prompts or gates change (invalidates the cache)
-ENRICH_VERSION = "enrich-v1"              # same, for run_enrich (memory-first, graph-enriched)
+HARNESS_VERSION = "agentic-v4"            # bump when run_agentic's prompts or gates change (invalidates the cache)
+ENRICH_VERSION = "enrich-v3"
+RAG_VERSION = "rag-v1"              # same, for run_enrich (memory-first, graph-enriched)
 
 
 def personas() -> dict:
@@ -147,7 +148,8 @@ def curate(cands: list[dict], per_persona: int, rich: int, examiner: str = G.EXA
 def _key(task: dict, model: str, condition: str) -> str:
     h = hashlib.sha256(json.dumps([task["question"], task["kb_version"], model, condition,
                                    HARNESS_VERSION if condition.startswith("kg_agentic") else
-                                   ENRICH_VERSION if condition == "kg_enrich" else ""]).encode()).hexdigest()[:24]
+                                   ENRICH_VERSION if condition == "kg_enrich" else
+                                   RAG_VERSION if condition == "kg_rag" else ""]).encode()).hexdigest()[:24]
     return h
 
 
@@ -161,6 +163,8 @@ def answer(task: dict, model: str, condition: str, kg: KG) -> dict:
         on = frozenset(head.split("+")[1:])
         off = frozenset(x for x in offs.split(",") if x)
         r = {**G.run_agentic(model, t, kg, off=off, on=on), "condition": condition}
+    elif condition == "kg_rag":                # typical RAG: one retrieval pass, context in the prompt
+        r = G.run_rag(model, t, kg)
     elif condition == "kg_enrich":             # memory-first: revise this model's own (cached) closed-book answer
         draft = answer(task, model, "closed_book", kg)
         if not draft.get("answer"):
