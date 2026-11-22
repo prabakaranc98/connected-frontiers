@@ -87,6 +87,8 @@ def build(version: str | None = None) -> dict:
     tasks = []
     for f in sorted(glob.glob(str(config.EVAL / "gold" / "tasks_*.jsonl"))):
         for t in _r(Path(f)):
+            if t.get("kb_version") != v:            # answer keys are only valid on the KB they were computed on
+                continue
             tasks.append({"task_id": t["id"], "task_set": Path(f).stem, "kb_version": t.get("kb_version", v),
                           "use_case": t["use_case"], "turns": t.get("turns") or [{"role": "user", "content": t["brief"]}],
                           "answer_key": t["key"],
@@ -115,6 +117,8 @@ def build(version: str | None = None) -> dict:
     traj = []
     for f in sorted(glob.glob(str(config.EVAL / "results" / "bench_*.jsonl"))):
         for r in _r(Path(f)):
+            if r.get("kb_version") != v:
+                continue
             o = r.get("output") or {}
             traj.append({"run_file": Path(f).name, "run_id": r.get("run_id"), "kb_version": r.get("kb_version", v),
                          "task_id": r["task_id"], "use_case": r["use_case"], "model": r["model"], "condition": r["condition"],
@@ -131,12 +135,13 @@ def build(version: str | None = None) -> dict:
 
     labels = []
     for f in sorted(glob.glob(str(config.EVAL / "gold" / "silver_*_v*.jsonl"))):
-        kind = "verification" if "verify" in f else "entity_resolution"
         for r in _r(Path(f)):
+            kind = "verification" if "triple" in r else "entity_resolution"     # by record shape, not file name
             if kind == "verification":
                 t = r["triple"]
                 labels.append({"label_set": Path(f).stem, "kind": kind, "item_id": r["id"], "url": r["url"],
                                "claim": {k: t[k] for k in ("head", "relation", "tail", "claim_kind")}, "quote": t["quote"][:400],
+                               "edge_id": r.get("edge_id"), "kb_status": r.get("status"),
                                "votes": r.get("votes", {}), "silver": r.get("silver"), "pipeline": r.get("prod_entailed")})
             else:
                 labels.append({"label_set": Path(f).stem, "kind": kind, "item_id": r["id"], "a": r["name_a"], "b": r["name_b"],

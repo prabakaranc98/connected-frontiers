@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from cf import config
 from cf.agent.kg import KG
 from cf.crawl.noise import is_generic
-from cf.llm.client import LLM, strict_schema
+from cf.llm.client import LLM, BudgetExceeded, strict_schema
 
 SUPPORTED = {"claimed", "confirmed", "corroborated", "verified"}
 
@@ -483,19 +483,34 @@ the base model, not X; for "which of them use M?" list those organisations, not 
 question is about. Empty list if the answer is none."""
 
 
-def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max_steps: int = 6,
-                temperature: float = 0.0, trial: int = 0) -> dict:
+HARNESS_H0 = {"id": "h0", "max_steps": 6, "neighbor_limit": 25, "truncation_notice": False, "empty_hints": False,
+              "schema_card": False, "extra_instructions": ""}       # the harness as it was for s1
+
+
+def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max_steps: int | None = None,
+                temperature: float = 0.0, trial: int = 0, harness: dict | None = None) -> dict:
+    import copy
     import time
 
     from cf import trace
     from cf.agent import harness as H
     from cf.agent.kg import QUERY_SPECS, TOOL_SPECS
+    hs = {**HARNESS_H0, **(harness or {})}
+    kg = copy.copy(kg)                                    # per-run switches; graph data stays shared
+    kg.empty_hints, kg.truncation_notice, kg.neighbor_limit = hs["empty_hints"], hs["truncation_notice"], hs["neighbor_limit"]
+    max_steps = max_steps or hs["max_steps"]
     llm = LLM(model)
     t0, spend0 = time.time(), LLM.spent_usd
     base = {"kg_tools": H.SYSTEM_TOOLS, "graph_query": H.SYSTEM_TOOLS + QUERY_HINT, "oracle": H.SYSTEM_ORACLE,
             "graph_rag": H.SYSTEM_ORACLE, "closed_book": H.SYSTEM_CLOSED}[condition]
     contract = TOOL_TURN if condition in ("kg_tools", "graph_query") else TURN_CONTRACT
-    messages = [{"role": "system", "content": base.split("When you are done")[0] + contract}]
+    sys_prompt = base.split("When you are done")[0] + contract
+    if condition in ("kg_tools", "graph_query"):
+        if hs["schema_card"]:
+            sys_prompt += "\n\n" + kg.schema_card()
+        if hs["extra_instructions"]:
+            sys_prompt += "\n\nStrategy:\n" + hs["extra_instructions"]
+    messages = [{"role": "system", "content": sys_prompt}]
     tools = {"kg_tools": TOOL_SPECS, "graph_query": QUERY_SPECS}.get(condition)
     allowed = {x["function"]["name"] for x in tools or []}
     turns, calls = [], []
@@ -520,6 +535,8 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
                 m, _ = llm.chat(messages, tools=None if last else tools, name=f"session_{condition}",
                                 max_tokens=2500, reasoning_max_tokens=reasoning,
                                 schema=None if tools and not last else SCHEMA, temperature=temperature)
+            except BudgetExceeded:
+                raise                                       # infrastructure, not a model answer: abort the run
             except RuntimeError as e:
                 final = {"answer": "", "items": [], "error": str(e)[:200]}
                 break
@@ -559,7 +576,7 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
             break
     scores = [t["score"] for t in turns] + [0.0] * (len(s["turns"]) - len(turns))
     out = {"session_id": s["id"], "template": s["template"], "model": model, "condition": condition,
-           "trial": trial, "temperature": temperature,
+           "trial": trial, "temperature": temperature, "harness": hs["id"],
            "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "turns": turns, "steps": calls,
            "turn_scores": scores, "mean_score": round(sum(scores) / len(scores), 3),
            "all_turns_pass": all(x >= 0.5 for x in scores),

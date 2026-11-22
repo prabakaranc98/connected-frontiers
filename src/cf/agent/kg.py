@@ -39,6 +39,9 @@ class KG:
         for n, eid in self._names:
             self._exact.setdefault((self.ents[eid]["type"], n), set()).add(eid)
         self._types = sorted({e["type"] for e in g["entities"]})
+        self.empty_hints = False              # harness switch: say what DOES exist when a query finds nothing
+        self.truncation_notice = False        # harness switch: say how many edges a list left out
+        self.neighbor_limit = 25
         self._nx = None
 
     # ---- helpers --------------------------------------------------------------------------
@@ -108,7 +111,7 @@ class KG:
                  "ppr": round(self.ents[eid].get("ppr") or 0, 4)} for s, eid in self.match(name, k, type)]
 
     def neighbors(self, id: str, relation: str | None = None, direction: str = "both",
-                  min_status: str = "claimed", limit: int = 25) -> list[dict]:
+                  min_status: str = "claimed", limit: int | None = None) -> list[dict]:
         if id not in self.ents:
             return [{"error": f"unknown id {id}; use find_entity first"}]
         lo = ST.index(min_status) if min_status in ST else 1
@@ -120,7 +123,36 @@ class KG:
             if direction == "out" and e["head"] != id or direction == "in" and e["tail"] != id:
                 continue
             out.append(self._edge_view(e, focus=id))
-        return sorted(out, key=lambda x: -x["strength"])[:limit]
+        limit = limit or self.neighbor_limit
+        res = sorted(out, key=lambda x: -x["strength"])[:limit]
+        if self.truncation_notice and len(out) > limit:
+            res.append({"note": f"{len(out) - limit} more edges not shown; raise limit or filter by relation",
+                        "relations_here": self.relations_at(id)})
+        if self.empty_hints and not out:
+            res.append({"note": "no edges match", "relations_here": self.relations_at(id)})
+        return res
+
+    def relations_at(self, id: str) -> list[str]:
+        """What exists at a node: 'direction relation → other type (count)', for recovering from empty queries."""
+        c: dict[str, int] = {}
+        for eid in self.adj.get(id, []):
+            e = self.edges[eid]
+            if e["status"] == "unsupported":
+                continue
+            d, other = ("out", e["tail"]) if e["head"] == id else ("in", e["head"])
+            k = f"{d} {e['relation']} → {self.ents[other]['type']}"
+            c[k] = c.get(k, 0) + 1
+        return [f"{k} ({n})" for k, n in sorted(c.items(), key=lambda x: -x[1])][:15]
+
+    def schema_card(self) -> str:
+        """The KB's relation vocabulary: which relation connects which entity types (for the system prompt)."""
+        c: dict[str, int] = {}
+        for e in self.edges.values():
+            if e["status"] != "unsupported":
+                k = f"{self.ents[e['head']]['type']} —{e['relation']}→ {self.ents[e['tail']]['type']}"
+                c[k] = c.get(k, 0) + 1
+        top = sorted(c.items(), key=lambda x: -x[1])[:30]
+        return "Relations in this knowledge graph (count):\n" + "\n".join(f"- {k} ({n})" for k, n in top)
 
     def evidence(self, edge_id: str) -> dict:
         e = self.edges.get(edge_id)
@@ -167,6 +199,10 @@ class KG:
                         continue
                     nxt.setdefault(other, via + [eid])
                     reach.setdefault(other, set()).add(node)
+            if not nxt and self.empty_hints:                 # say what exists, so the model can repair the path
+                return {"start": {"id": sid, "name": self.name(sid)}, "per_step_counts": counts + [0], "results": [],
+                        "note": f"step {len(counts) + 1} {step} matched nothing",
+                        "relations_at_previous_step": {self.name(n): self.relations_at(n) for n in list(frontier)[:3]}}
             frontier, last_rel = nxt, rel
             counts.append(len(frontier))
             if not frontier:

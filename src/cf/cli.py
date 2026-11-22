@@ -157,6 +157,100 @@ def sessions(n: int = typer.Option(12), seed: int = typer.Option(11), version: s
         console.print(f"  [yellow]rejected[/] {r['template']} {r['anchors']}: {r['reasons']}")
 
 
+@app.command()
+def discover(per_persona: int = typer.Option(3), models: list[str] = typer.Option(None), tag: str = typer.Option("p1"),
+             dry_run: bool = typer.Option(False, help="only build and print the tasks")) -> None:
+    """Persona discovery (student · professional · vc · founder · engineer): KB agent vs closed book, claims checked on the KB."""
+    from cf.bench import discovery as D
+
+    tasks = D.build(per_persona)
+    for t in tasks:
+        console.print(f"[bold]{t['id']}[/] {t['question']}")
+    if dry_run:
+        return
+    res = D.bench(models or ["thinkingmachines/inkling-2-small", "qwen/qwen3.5-35b-a3b"], tasks)
+    out = D.save(res, tasks, tag)
+    console.print(D.report(res))
+    console.print(out)
+
+
+@app.command()
+def meta(models: list[str] = typer.Option(None), proposals: int = typer.Option(3),
+         heldout_trials: int = typer.Option(2),
+         confirm: list[str] = typer.Option(None, help="only re-run held-out confirmation for these spec ids")) -> None:
+    """Meta loop L2 (harness): diagnose on train → propose specs → select on train → confirm on held-out → ledger."""
+    import json
+
+    from cf.bench.meta import iterate
+
+    if confirm:
+        from cf.bench.meta import confirm as confirm_
+        rec = confirm_(tuple(confirm), models or None, trials=heldout_trials)
+        console.print_json(json.dumps({k: rec[k] for k in ("promote", "heldout_paired", "spend_usd")}))
+        return
+    rec = iterate(models or ["thinkingmachines/inkling-2-small", "qwen/qwen3.5-35b-a3b"], n_props=proposals,
+                  heldout_trials=heldout_trials)
+    console.print_json(json.dumps({k: rec[k] for k in ("promote", "selected", "heldout_paired", "spend_usd")}))
+
+
+@app.command()
+def site(kb_version: str = typer.Option(None, "--kb"), note: str = typer.Option("interim: crawl in progress")) -> None:
+    """Build the public static explorer → data/site/ (deploy with scripts/deploy_pages.sh)."""
+    import json
+    from datetime import UTC, datetime
+
+    from cf import kb
+    from cf.viz.explorer import write_explorer
+
+    v = kb_version or kb.current()
+    g = json.loads(kb.graph_path(v).read_text())
+    out = config.DATA / "site"
+    sub = (f"KB {v} · {len(g['entities']):,} entities · {len(g['edges']):,} edges · {note} · "
+           f"built {datetime.now(UTC):%Y-%m-%d}")
+    write_explorer(g, out / "index.html", sub, static=True)
+    (out / ".nojekyll").write_text("")
+    console.print(f"[green]→ {out / 'index.html'}[/] ({(out / 'index.html').stat().st_size / 1e6:.1f} MB)")
+
+
+@app.command()
+def guidance(per_persona: int = typer.Option(6), dry_run: bool = typer.Option(False, help="only build the tasks (Examiner)")) -> None:
+    """Guidance eval: grounded vs closed book, small vs large models, LLM-as-a-judge rubrics and pairwise preferences."""
+    import json
+
+    from cf.bench import guidance as G
+
+    if dry_run:
+        acc, rej = G.examine(per_persona)
+        for t in acc:
+            console.print(f"[bold]{t['id']}[/] ({t['stratum']}) {t['question']}")
+        console.print(f"accepted {len(acc)} · rejected {len(rej)}: {[r['reason'][:60] for r in rej][:6]}")
+        return
+    res = G.experiment(per_persona=per_persona)
+    console.print(G.report(res))
+    console.print_json(json.dumps({"spend_usd": res["spend_usd"], "tasks": len(res["tasks"])}))
+
+
+@app.command()
+def experiment(cfg: str = typer.Argument(..., help="e.g. configs/experiments/agency_pilot.yaml")) -> None:
+    """Run an agency experiment from a YAML config (tasks → answers (cached) → judge validation → judges → report)."""
+    from cf.bench.agency import run_experiment
+
+    res = run_experiment(cfg.removeprefix("configs/"))
+    console.print(res["report"])
+    console.print(f"[green]→ {res['dir']}[/]")
+
+
+@app.command()
+def advise(question: str = typer.Argument(...), persona: str = typer.Option("undergrad_capstone", help="key in configs/personas.yaml"),
+           model: str = typer.Option("thinkingmachines/inkling-2-small")) -> None:
+    """Grounded guidance: the agentic harness researches the KB and builds advice from cited findings."""
+    from cf.bench.agency import advise as run_advise
+
+    r = run_advise(question, persona, model)
+    console.print(r["card"])
+    console.print(f"[green]→ {r['card_path']}[/] · ${r['cost_usd']}")
+
+
 @app.command("silver-kb")
 def silver_kb(kb_version: str = typer.Option(None, "--kb"), n_er: int = typer.Option(80)) -> None:
     """Scorecard layer 1: does the status ladder mean something on this KB? (+ verifier and ER vs silver)"""

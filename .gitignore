@@ -35,3 +35,5 @@ data/kb/*/*
 !data/kb/*/manifest.json
 !data/kb/*/report.md
 data/release/
+data/site/
+eval/cache/

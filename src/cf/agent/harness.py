@@ -47,6 +47,8 @@ def _touched(result) -> dict:
                     ent.add(v)
                 elif k == "edge_id" and isinstance(v, str):
                     edg.add(v)
+                elif k in ("via_edge_ids", "edge_ids") and isinstance(v, list):   # graph_query paths
+                    edg.update(x for x in v if isinstance(x, str))
                 elif k == "chunk_id" and isinstance(v, str):
                     chk.add(v)
                 else:

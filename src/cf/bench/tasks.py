@@ -118,6 +118,7 @@ def build(per_use_case: int = 5, seed: int = 7, version: str = "v0") -> list[dic
     for i, t in enumerate(tasks):
         t["id"] = f"{t['use_case'].split('_')[0]}-{i:03d}"
         t["kg_snapshot"] = kg.g.get("generated_at", "graph.json")
+        t["kb_version"] = kg.kb_version               # keys are only valid on this KB version
     OUT.mkdir(parents=True, exist_ok=True)
     with (OUT / f"tasks_{version}.jsonl").open("w") as f:
         for t in tasks:

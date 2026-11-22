@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>What a small model found by walking the graph: three case studies from Connected Frontiers</title>
+<defs><filter id="sh" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="2" stdDeviation="7" flood-color="#0F172A" flood-opacity="0.07"/></filter></defs>
+<rect width="1080" height="1350" fill="#F8FAFC"/>
+<text x="60" y="78" font-size="14" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.14em">CASE STUDY · CONNECTED FRONTIERS</text>
+<text x="60" y="128" font-size="40" font-weight="700" fill="#0F172A" text-anchor="start">What a small model found by walking the graph</text>
+<text x="60" y="164" font-size="17" font-weight="400" fill="#475569" text-anchor="start">Inkling-2-small answered multi-turn questions with graph tools. Every answer cites the edges it used;</text>
+<text x="60" y="188" font-size="17" font-weight="400" fill="#475569" text-anchor="start">each edge keeps its source quote and an evidence status: claimed, confirmed, corroborated or verified.</text>
+<rect x="60" y="222" width="960" height="330" rx="18" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#sh)"/>
+<rect x="60" y="246" width="5" height="282" rx="2.5" fill="#2563EB"/>
+<text x="96" y="266" font-size="13" font-weight="700" fill="#2563EB" text-anchor="start" letter-spacing="0.12em">INVESTOR VIEW · TRACTION CLAIMS</text>
+<text x="96" y="294" font-size="16.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">“Which customers does OpenRouter say it serves, and how well is each claim evidenced?”</text>
+<text x="96" y="336" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">All 12 customer claims come from OpenRouter’s own site,</text>
+<text x="96" y="366" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">and 8 of the 12 rest on nothing more than a logo.</text>
+<text x="96" y="412" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">OpenRouter —serves→ Prime Intellect</text>
+<rect x="412.0" y="397" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="447.2" y="413" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="434" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">openrouter.ai: “grew 100x on OpenRouter and cut its cost per token by 60%”</text>
+<text x="96" y="468" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">OpenRouter —serves→ Lovable</text>
+<rect x="344.8" y="453" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="380.0" y="469" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="490" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">openrouter.ai: “Lovable logo” · also claimed by Baseten, Cerebras, Cloudflare, Fireworks AI</text>
+<text x="96" y="526" font-size="15" font-weight="600" fill="#2563EB" text-anchor="start">Why it matters: a logo wall and a confirmed customer are different kinds of evidence.</text>
+<rect x="800" y="404" width="24" height="24" rx="5" fill="#2563EB" fill-opacity="0.85" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="832" y="404" width="24" height="24" rx="5" fill="#2563EB" fill-opacity="0.85" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="864" y="404" width="24" height="24" rx="5" fill="#2563EB" fill-opacity="0.85" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="896" y="404" width="24" height="24" rx="5" fill="#2563EB" fill-opacity="0.85" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="928" y="404" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="960" y="404" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="800" y="436" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="832" y="436" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="864" y="436" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="896" y="436" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="928" y="436" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="960" y="436" width="24" height="24" rx="5" fill="none" fill-opacity="1" stroke="#2563EB" stroke-width="1.5"/>
+<text x="800" y="490" font-size="13" font-weight="600" fill="#0F172A" text-anchor="start">■ 4 case studies with numbers</text>
+<text x="800" y="510" font-size="13" font-weight="600" fill="#475569" text-anchor="start">□ 8 logo-only claims</text>
+<rect x="60" y="572" width="960" height="330" rx="18" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#sh)"/>
+<rect x="60" y="596" width="5" height="282" rx="2.5" fill="#EA580C"/>
+<text x="96" y="616" font-size="13" font-weight="700" fill="#EA580C" text-anchor="start" letter-spacing="0.12em">FOUNDER VIEW · AN UNMEASURED CATEGORY</text>
+<text x="96" y="644" font-size="16.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">“Which companies work on AI customer-service agents, and which benchmarks do they report?”</text>
+<text x="96" y="686" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">Three companies work on it: Sierra, Decagon and Ada.</text>
+<text x="96" y="716" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">None of them reports a benchmark in the graph.</text>
+<text x="96" y="762" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Sierra —works_on→ AI customer-service agents</text>
+<rect x="487.6" y="747" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="522.8000000000001" y="763" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="784" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">braintrust.dev: “a standalone platform for building branded customer-experience agents”</text>
+<text x="96" y="818" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Decagon AI, Ada —works_on→ the same problem</text>
+<rect x="479.2" y="803" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="514.4" y="819" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="840" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">the same source for all three: an evaluation vendor’s page, not the companies’ own</text>
+<text x="96" y="876" font-size="15" font-weight="600" fill="#EA580C" text-anchor="start">Why it matters: products without a shared public benchmark point to an opening in evaluation.</text>
+<rect x="790" y="725" width="96" height="24" rx="12" fill="#EA580C" fill-opacity="0.12"/>
+<text x="838" y="742" font-size="12.5" font-weight="700" fill="#EA580C" text-anchor="middle">Sierra</text>
+<path d="M886 737 L918 773" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+<rect x="790" y="759" width="96" height="24" rx="12" fill="#EA580C" fill-opacity="0.12"/>
+<text x="838" y="776" font-size="12.5" font-weight="700" fill="#EA580C" text-anchor="middle">Decagon AI</text>
+<path d="M886 771 L918 773" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+<rect x="790" y="793" width="96" height="24" rx="12" fill="#EA580C" fill-opacity="0.12"/>
+<text x="838" y="810" font-size="12.5" font-weight="700" fill="#EA580C" text-anchor="middle">Ada</text>
+<path d="M886 805 L918 773" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+<rect x="918" y="758" width="68" height="30" rx="8" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.4"/>
+<text x="952" y="777" font-size="11.5" font-weight="700" fill="#0F172A" text-anchor="middle">CX agents</text>
+<path d="M952 788 V822" stroke="#94A3B8" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="902" y="822" width="100" height="28" rx="8" fill="none" stroke="#94A3B8" stroke-dasharray="4 4"/>
+<text x="952" y="840" font-size="12" font-weight="700" fill="#475569" text-anchor="middle">benchmarks: 0</text>
+<rect x="60" y="922" width="960" height="330" rx="18" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#sh)"/>
+<rect x="60" y="946" width="5" height="282" rx="2.5" fill="#7C3AED"/>
+<text x="96" y="966" font-size="13" font-weight="700" fill="#7C3AED" text-anchor="start" letter-spacing="0.12em">LEARNER VIEW · THREE HOPS OF LINEAGE</text>
+<text x="96" y="994" font-size="16.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">“What is MuZero built on, who offers that base, and what else is built on it?”</text>
+<text x="96" y="1036" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">MuZero builds on AlphaGo, which Google DeepMind offers;</text>
+<text x="96" y="1066" font-size="24" font-weight="700" fill="#0F172A" text-anchor="start">AlphaZero and AlphaDev build on the same base.</text>
+<text x="96" y="1112" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">MuZero —builds_on→ AlphaGo</text>
+<rect x="336.4" y="1097" width="70.4" height="22" rx="11" fill="#EA580C" fill-opacity="0.12"/>
+<text x="371.59999999999997" y="1113" font-size="12" font-weight="700" fill="#EA580C" text-anchor="middle">claimed</text>
+<text x="96" y="1134" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">deepmind.google: “AlphaZero, MuZero, and AlphaDev — are building upon AlphaGo’s legacy”</text>
+<text x="96" y="1168" font-size="14.5" font-weight="600" fill="#0F172A" text-anchor="start">Google DeepMind —offers→ AlphaGo</text>
+<rect x="386.8" y="1153" width="106.4" height="22" rx="11" fill="#2563EB" fill-opacity="0.12"/>
+<text x="440.0" y="1169" font-size="12" font-weight="700" fill="#2563EB" text-anchor="middle">corroborated</text>
+<text x="96" y="1190" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" font-style="italic">two independent publishers agree</text>
+<text x="96" y="1226" font-size="15" font-weight="600" fill="#7C3AED" text-anchor="start">Why it matters: three linked questions, answered in one conversation, each step cited.</text>
+<rect x="788" y="1080" width="104" height="28" rx="8" fill="#7C3AED" fill-opacity="0.12" stroke="#7C3AED" stroke-width="1.4"/>
+<text x="840" y="1099" font-size="13" font-weight="700" fill="#7C3AED" text-anchor="middle">AlphaGo</text>
+<text x="840" y="1068" font-size="12" font-weight="700" fill="#475569" text-anchor="middle">Google DeepMind</text>
+<path d="M840 1072 V1080" stroke="#94A3B8" stroke-width="1.4"/>
+<path d="M840 1108 L740 1156" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+<rect x="696" y="1156" width="88" height="26" rx="13" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+<text x="740" y="1174" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">MuZero</text>
+<path d="M840 1108 L840 1156" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+<rect x="796" y="1156" width="88" height="26" rx="13" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+<text x="840" y="1174" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">AlphaZero</text>
+<path d="M840 1108 L940 1156" stroke="#94A3B8" stroke-width="1.4" fill="none"/>
+<rect x="896" y="1156" width="88" height="26" rx="13" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.2"/>
+<text x="940" y="1174" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">AlphaDev</text>
+<text x="60" y="1290" font-size="14.5" font-weight="700" fill="#0F172A" text-anchor="start">On 14 held-out sessions: 0.94 answer F1 with the graph, 0.10 from memory · Inkling-2-small · harness h3</text>
+<text x="60" y="1314" font-size="13" font-weight="400" fill="#475569" text-anchor="start">Findings are what the graph holds, not audited facts.   Explore: pracha.me/connected-frontiers   ·   Code: github.com/prabakaranc98/connected-frontiers</text>
+</svg>
