@@ -241,6 +241,29 @@ def experiment(cfg: str = typer.Argument(..., help="e.g. configs/experiments/age
 
 
 @app.command()
+def usecases(cfg: str = typer.Argument(..., help="e.g. configs/experiments/usecases_v1.yaml"),
+             generate_only: bool = typer.Option(False, help="only generate and write the task set (Examiner calls)")) -> None:
+    """Generate a task set from the use-case catalogue, answer it, score retrieval → grounding → use, judge, report."""
+    from cf.bench.usecases import run as run_usecases
+
+    res = run_usecases(cfg, generate_only)
+    console.print(res["report"])
+    console.print(f"[green]→ {res['dir']}[/]")
+
+
+@app.command()
+def checklist(exp_dir: str = typer.Argument(..., help="an experiment run folder, e.g. eval/experiments/agency_pilot/20261122-0103"),
+              scorers: str = typer.Option("code,jev,llm:z-ai/glm-5.3,llm:nvidia/nemotron-3.5-super-vl",
+                                          help="comma-separated: code · jev · llm:<model id>"),
+              unit_tests: bool = typer.Option(True, help="also run the defect tests (incl. the familiarity test)")) -> None:
+    """Re-score an experiment's cached answers with the typed checklist; compare code, Jev and LLM scorers per item."""
+    from cf.bench.agency import rescore_checklist
+
+    res = rescore_checklist(exp_dir, [s.strip() for s in scorers.split(",") if s.strip()], unit_tests)
+    console.print(res["report"])
+
+
+@app.command()
 def advise(question: str = typer.Argument(...), persona: str = typer.Option("undergrad_capstone", help="key in configs/personas.yaml"),
            model: str = typer.Option("thinkingmachines/inkling-2-small")) -> None:
     """Grounded guidance: the agentic harness researches the KB and builds advice from cited findings."""
@@ -438,24 +461,23 @@ def eval_(kb_version: str = typer.Option(None, "--kb", help="KB version (default
 
 @app.command()
 def release(kb_version: str = typer.Option(None, "--kb", help="KB version (default CURRENT)"),
-            push: bool = typer.Option(False, "--push", help="upload to Hugging Face (asks for the repo; private)"),
-            repo: str = typer.Option(None, help="HF dataset repo id, e.g. <user>/connected-frontiers")) -> None:
-    """Build the Hugging Face collection locally (kb · tasks · trajectories · labels); --push uploads privately."""
+            all_versions: bool = typer.Option(False, "--all-versions", help="tasks, runs and labels from every KB version"),
+            push: bool = typer.Option(False, "--push", help="upload to Hugging Face: private repos + private collection"),
+            owner: str = typer.Option(None, help="HF user or org that owns the repos")) -> None:
+    """Build the Hugging Face collection locally (kg · bench · runs · labels); --push uploads privately."""
     import json
 
     from cf.release import build as build_release
+    from cf.release import push_collection
 
-    r = build_release(kb_version)
+    r = build_release(kb_version, all_versions=all_versions)
     console.print_json(json.dumps(r))
     if push:
-        if not repo:
-            raise typer.BadParameter("--push needs --repo <user>/<name>")
-        from huggingface_hub import HfApi
-        api = HfApi()
-        api.create_repo(repo, repo_type="dataset", private=True, exist_ok=True)
-        api.upload_folder(folder_path=r["out"], repo_id=repo, repo_type="dataset",
-                          commit_message=f"Connected Frontiers {r['version']}")
-        console.print(f"[green]pushed (private)[/] → https://huggingface.co/datasets/{repo}")
+        if not owner:
+            raise typer.BadParameter("--push needs --owner <hf user or org>")
+        res = push_collection(r, owner)
+        console.print(f"[green]pushed (private)[/] → {res['collection']}")
+        console.print_json(json.dumps(res))
 
 
 if __name__ == "__main__":

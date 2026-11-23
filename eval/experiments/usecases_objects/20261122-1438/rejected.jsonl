@@ -1,0 +1,2 @@
+{"usecase": "benchmark_models", "anchor": "benchmark:apex-accounting", "stratum": "thin", "reason": "curator: The term 'APEX-Accounting' follows the naming convention of specialized domain-specific benchmarks (like GSM8K for math or HumanEval for cod"}
+{"usecase": "benchmark_models", "anchor": "benchmark:gdp.pdf", "stratum": "thin", "reason": "curator: The term 'GDP.pdf' is a filename, not a standardized benchmark name. In the context of LLM evaluation, benchmarks are typically identified b"}

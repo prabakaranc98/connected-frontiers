@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from cf import config, trace
 from cf.agent.harness import _touched
-from cf.agent.kg import KG, TOOL_SPECS
+from cf.agent.kg import AGENT_SPECS, KG, ST, TOOL_SPECS
 from cf.bench.sessions import _ok
 from cf.eval.stats import bootstrap
 from cf.llm.client import AUTO, LLM, BudgetExceeded, strict_schema
@@ -70,6 +70,22 @@ class Guidance(_S):
 
 SCHEMA = strict_schema(Guidance)
 
+
+# ---- step switches (added one at a time, each measured): reading list · importance selection · justified names ----
+class ReadItem(_S):
+    title: str
+    kind: Literal["paper", "docs", "model", "dataset", "benchmark", "repository", "post"]
+    why: str
+
+
+class GuidanceR(Guidance):
+    read: list[ReadItem]
+
+
+SCHEMA_R = strict_schema(GuidanceR)
+READ_FMT = (" Also `read`: 2-5 things to read or open first (papers, docs, model cards, datasets, benchmarks, "
+            "repositories), each with its kind and one line on why it matters for this person.")
+
 PERSONAS = {
     "student": ("method", ("I'm a student who wants to get into {a}. Over the next 8 weeks, what should I learn first and in "
                           "what order, what should I build, and which small experiments should I run? Suggest a concrete "
@@ -93,7 +109,7 @@ FORMAT = ("Now give your advice as JSON: summary (2-3 sentences), learn (at most
           "title, what, stack of at most 6 tools, first_step), experiments (1-2: question, baseline, change, measure), stack "
           "(at most 8 tools and platforms), sources (edge ids you relied on, or [] if none). In the advice itself do not "
           "mention your tools, a graph or your sources; put sources only in `sources`.")
-CAPS = {"learn": 6, "stack": 8, "projects": 3, "experiments": 2}
+CAPS = {"learn": 6, "stack": 8, "projects": 3, "experiments": 2, "read": 5}
 
 
 def _cap(a: dict) -> dict:
@@ -224,9 +240,9 @@ def examine(per_persona: int = 6, rich: int = 4, seed: int = 13) -> tuple[list[d
     return acc, rejected
 
 
-def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> dict:
+def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14, on: frozenset = frozenset()) -> dict:
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     grounded = condition == "kg_tools"
     if grounded:
         kg = copy.copy(kg)
@@ -265,9 +281,11 @@ def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> 
         break
     answer = None
     if not err:
-        msgs += [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT}]
+        rd = "reading" in on
+        msgs += [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT + (READ_FMT if rd else "")}]
         try:
-            m2, _ = llm.chat(msgs, name=f"guidance_{condition}_format", max_tokens=3000, reasoning_max_tokens=AUTO, schema=SCHEMA)
+            m2, _ = llm.chat(msgs, name=f"guidance_{condition}_format", max_tokens=3000, reasoning_max_tokens=AUTO,
+                             schema=SCHEMA_R if rd else SCHEMA)
             answer = _cap(json.loads(m2.get("content") or "{}"))
         except BudgetExceeded:
             raise
@@ -277,7 +295,7 @@ def run(model: str, task: dict, condition: str, kg: KG, max_steps: int = 14) -> 
            "condition": condition, "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "answer": answer, "steps": steps,
            "prose": prose[:6000],
            "error": err, "metrics": metrics(kg, answer, task) if answer else None, "stratum": task.get("stratum"),
-           "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+           "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"guidance": task["id"], "model": model, "condition": condition, "metrics": out["metrics"]})
     return out
 
@@ -317,6 +335,10 @@ class AgenticGuidance(_S):
     sources: list[str]
 
 
+class AgenticGuidanceR(AgenticGuidance):
+    read: list[ReadItem]
+
+
 PLAN = ("You are preparing advice for the person below. Before answering, plan research in a knowledge graph of the "
         "AI ecosystem (organisations, methods, tools, models, benchmarks, datasets, roles, with sourced evidence). "
         "Write 4-6 sub-questions whose answers would change your advice, for example: who does this in practice and "
@@ -343,6 +365,44 @@ ADVISE = ("Now give your advice as JSON, built FROM your findings. Every project
           "≤ 8. Do not mention your tools or a graph in the text; put edge ids only in `sources`.")
 READ_GATE = ("You have not read any evidence yet. Before writing notes, call `evidence` on the 3-5 edges your advice "
              "will rely on most, and note what each source actually says.")
+ADVISE_FIT = ("Now give your advice as JSON, built FROM your findings AND fitted to this person. Rules:\n"
+              "1. Scope from their constraints: ONE main project sized to their stated time and compute, plus at most "
+              "one optional stretch project. The first step of the main project must be doable in a day.\n"
+              "2. Downscale frontier practice to their level: start with the smallest version that teaches the same "
+              "thing (e.g. a plain reference implementation before modifying a large production codebase).\n"
+              "3. Check prerequisites: hardware (e.g. which GPU generations a method needs), access, skills and data "
+              "must match what they have; if not, change the plan.\n"
+              "4. Every project lists in `based_on` the indices (0-based) of the findings it builds on; general "
+              "knowledge only where findings are silent.\n"
+              "5. Experiments are controlled: one question, a baseline, one change, a measure.\n"
+              "Limits: learn ≤ 6, projects 1-2 (stack ≤ 6), experiments 1-2, stack ≤ 8. Do not mention your tools or a "
+              "graph in the text; put edge ids only in `sources`.")
+
+
+class Prereq(_S):
+    project: str
+    requirement: str
+    person_has_it: bool
+    fix: str
+
+
+class PrereqCheck(_S):
+    checks: list[Prereq]
+
+
+PREREQ = ("Check your advice against this person. For each project, list its hard prerequisites (hardware and GPU "
+          "generation, access to systems or data, skills, time) and whether the person has each one given their "
+          "profile. Be strict and specific.")
+PREREQ_REVISE = ("These prerequisites are not met: {gaps}. Revise the advice so every project is feasible for this "
+                 "person (change the project, downscale it, or add the missing step), keeping the same JSON form.")
+
+
+def _profile_text(task: dict) -> str:
+    p = task.get("profile") or {}
+    return (f"\n\nAbout the person: {p.get('label', '')}. Background: {p.get('background', '')} Constraints: "
+            f"{p.get('constraints', '')} Goal: {p.get('goal', '')} Success looks like: {p.get('success', '')}") if p else ""
+
+
 REVISE = ("These projects do not build on any finding: {titles}. Revise the advice so that each project builds on at "
           "least one finding (or replace it with one that does), keeping the same JSON form.")
 
@@ -366,13 +426,15 @@ def _resolve(kg: KG, name: str) -> str | None:
     return m[0][1] if m and m[0][0] >= 0.9 else None
 
 
-def _tool_loop(llm, msgs, kg, steps, max_steps, name):
+def _tool_loop(llm, msgs, kg, steps, max_steps, name, tools=None):
     """One research loop; returns the final prose. Appends to msgs and steps."""
+    tools = tools or TOOL_SPECS
+    allowed = {x["function"]["name"] for x in tools}
     for step in range(max_steps):
         last = step == max_steps - 1
         if last:
             msgs.append({"role": "user", "content": "Step budget reached: summarise what you learned."})
-        m, _ = llm.chat(msgs, tools=None if last else TOOL_SPECS, name=name, max_tokens=2500, reasoning_max_tokens=AUTO)
+        m, _ = llm.chat(msgs, tools=None if last else tools, name=name, max_tokens=2500, reasoning_max_tokens=AUTO)
         tcs = m.get("tool_calls") or []
         if tcs and not last:
             msgs.append({"role": "assistant", "content": m.get("content") or "", "tool_calls": tcs})
@@ -380,7 +442,7 @@ def _tool_loop(llm, msgs, kg, steps, max_steps, name):
                 fn = tc["function"]["name"]
                 try:
                     args = json.loads(tc["function"].get("arguments") or "{}")
-                    res = getattr(kg, fn)(**args) if fn in {x["function"]["name"] for x in TOOL_SPECS} else {"error": "unknown tool"}
+                    res = getattr(kg, fn)(**args) if fn in allowed else {"error": "unknown tool"}
                 except (TypeError, ValueError, KeyError) as e:
                     res = {"error": f"bad arguments: {e}"}
                 steps.append({"step": len(steps), "tool": fn, "args": tc["function"].get("arguments"),
@@ -393,18 +455,162 @@ def _tool_loop(llm, msgs, kg, steps, max_steps, name):
     return ""
 
 
-def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozenset = frozenset()) -> dict:
+NOT_COVERED = ("Rule: a lookup that finds nothing means the graph does not cover it, not that the claim is false, rare or "
+               "unverified. Call something 'self-claimed' only when the evidence says the source is the organisation "
+               "itself, and 'contradicted' only when the evidence contradicts it; well-known facts the graph does not "
+               "cover stay as they are.")
+
+
+def _linked_block(kg: KG, question: str) -> str:
+    """Entity linking before planning: start research from the entities the question names."""
+    L = kg.link(question)
+    if not L:
+        return "\n\nNo entity in the question matched a graph name exactly; start with find_entity, top or search_text."
+    parts = []
+    for x in L:
+        s_ = f"{x['name']} ({x['id']}, {x['type']}, {x['edges']} edges)"
+        if x["edges"] < 5 and (b := kg.broader(x["id"])):
+            s_ += " — thin; broader: " + ", ".join(f"{y['name']} ({y['id']}, {y['edges']} edges)" for y in b)
+        parts.append(s_)
+    pats = [PATTERNS[t].format(id=x["id"]) for t in dict.fromkeys(x["type"] for x in L) if t in PATTERNS]
+    return ("\n\nEntities in the question found in the graph (start here): " + "; ".join(parts)
+            + ("\nUseful multi-hop queries for these (graph_query): " + " · ".join(pats) if pats else ""))
+
+
+# two-hop patterns per anchor type: the question types every agent was weakest on (retrieval 0.18-0.31 on
+# "who hires for X and what do they use?") need the second hop, which the agents rarely took on their own
+PATTERNS = {
+    "role": "who hires and what they use: start='{id}', path=[{{'relation':'hires_for','direction':'in','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+    "method": "who uses it and with which tools: start='{id}', path=[{{'relation':'uses_method','direction':'in','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+    "problem": "who works on it and how: start='{id}', path=[{{'relation':'works_on','direction':'in','type':'org'}},{{'relation':'uses_method','direction':'out'}}]",
+    "technology": "who uses it and what else they use: start='{id}', path=[{{'relation':'uses_tech','direction':'in','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+    "benchmark": "which models are measured on it and who makes them: start='{id}', path=[{{'relation':'measured_on','direction':'in','type':'model'}},{{'relation':'offers','direction':'in'}}]",
+    "model": "what is built on it: start='{id}', path=[{{'relation':'builds_on','direction':'in','type':'model'}}]",
+    "org": "its customers' stacks: start='{id}', path=[{{'relation':'serves','direction':'out','type':'org'}},{{'relation':'uses_tech','direction':'out'}}]",
+}
+_W = re.compile(r"[a-z0-9]+")
+_REL_WORDS = {"hires_for": {"hire", "hires", "hiring", "job", "jobs", "role", "roles", "career"},
+              "uses_tech": {"use", "uses", "stack", "tool", "tools", "systems", "infrastructure", "connect", "platform"},
+              "uses_method": {"method", "methods", "technique", "train", "training", "build", "approach"},
+              "measured_on": {"benchmark", "benchmarks", "evaluate", "evaluation", "baseline", "baselines", "measure"},
+              "builds_on": {"base", "fine-tune", "finetune", "derivative", "derivatives", "built"},
+              "offers": {"vendor", "vendors", "service", "offer", "offers", "product", "provider"},
+              "works_on": {"research", "direction", "problem", "working", "work"},
+              "serves": {"customer", "customers", "client", "clients"}}
+
+
+def _relevance(kg: KG, e: dict, words: set[str], linked: set[str]) -> float:
+    """How relevant a retrieved edge is to the question and plan: touches a question entity, relation named by the
+    question's words, entity names sharing words with it. Selection, not retrieval, was the bottleneck."""
+    r = 2.0 if (e["head"] in linked or e["tail"] in linked) else 0.0
+    r += 1.5 if words & _REL_WORDS.get(e["relation"], set()) else 0.0
+    names = set(_W.findall((kg.name(e["head"]) + " " + kg.name(e["tail"])).lower()))
+    return r + 0.5 * len(names & words)
+
+
+def _facts(kg: KG, steps: list[dict], k: int = 30, query: str = "") -> list[dict]:
+    """Every edge the research touched, best supported first: status, then publishers, then strength. Handed to the
+    notes step so facts retrieved early in a long loop are not lost (on Harvey the agent reached all 12 key
+    neighbours and its notes used none)."""
+    seen = {x for s_ in steps for x in s_.get("touched", {}).get("edges", []) if x in kg.edges}
+    es = [kg.edges[x] for x in seen if kg.edges[x]["status"] != "unsupported"]
+    words = set(_W.findall(query.lower())) - {"the", "and", "for", "what", "which", "with", "should", "would"}
+    linked = {x["id"] for x in kg.link(query)} if query else set()
+    linked |= {t for x in list(linked) for t in kg.twins(x)}
+    es.sort(key=lambda e: (-_relevance(kg, e, words, linked) if query else 0, -ST.index(e["status"]),
+                           -len({v.get("publisher") for v in e.get("evidence") or []}), -e["strength"]))
+    return es[:k]
+
+
+def _select(kg: KG, steps: list[dict], query: str, k: int = 24, key: int = 8) -> list[dict]:
+    """Importance selection (step 2): relevance to the question + evidence (status, publishers) + centrality of the far
+    entity, then spread across object types round-robin, so models, papers, tools and benchmarks all get a slot."""
+    import math
+    cand = _facts(kg, steps, 120, query)
+    linked = {x["id"] for x in kg.link(query)} if query else set()
+    linked |= {t for x in list(linked) for t in kg.twins(x)}
+    words = set(_W.findall(query.lower()))
+    pr = max((e.get("pagerank") or 0) for e in kg.ents.values()) or 1
+
+    def far(e):
+        return e["tail"] if e["head"] in linked else e["head"] if e["tail"] in linked else e["tail"]
+
+    def score(e):
+        pubs = len({v.get("publisher") for v in e.get("evidence") or []})
+        return (_relevance(kg, e, words, linked) + ST.index(e["status"]) / 2 + 0.5 * math.log1p(pubs)
+                + 2 * (kg.ents[far(e)].get("pagerank") or 0) / pr)
+    by_type: dict[str, list[dict]] = {}
+    for e in sorted(cand, key=lambda e: -score(e)):
+        by_type.setdefault(kg.ents[far(e)]["type"], []).append(e)
+    out: list[dict] = []
+    while len(out) < k and any(by_type.values()):
+        for t in list(by_type):
+            if by_type[t] and len(out) < k:
+                out.append(by_type[t].pop(0))
+    for i, e in enumerate(out):
+        e["_key"] = i < key
+    return out
+
+
+def _facts_block(kg: KG, steps: list[dict], k: int = 30, query: str = "", select: bool = False) -> str:
+    if select:
+        es = _select(kg, steps, query)
+        if not es:
+            return ""
+        lines = [f"- {'KEY ' if e.get('_key') else ''}[{e['id']}] {kg.name(e['head'])} {e['relation'].replace('_', ' ')} "
+                 f"{kg.name(e['tail'])} ({e['status']}, {len({v.get('publisher') for v in e.get('evidence') or []})} publisher(s))"
+                 for e in es]
+        return ("\n\nFacts you retrieved, chosen for importance and spread across kinds of object (models, papers, tools, "
+                "benchmarks, datasets, organisations). Consider every KEY fact: use it if it matters for this person, or "
+                "leave it out deliberately. Cite edge ids:\n" + "\n".join(lines))
+    es = _facts(kg, steps, k, query)
+    if not es:
+        return ""
+    lines = [f"- [{e['id']}] {kg.name(e['head'])} {e['relation'].replace('_', ' ')} {kg.name(e['tail'])} "
+             f"({e['status']}, {len({v.get('publisher') for v in e.get('evidence') or []})} publisher(s))" for e in es]
+    return ("\n\nFacts you retrieved, most relevant to the question first (use the ones that matter for this person; cite their ids):\n"
+            + "\n".join(lines))
+
+
+READ_ADVISE = ("\nAlso give `read`: 2-5 things to read or open first (papers, docs, model cards, datasets, benchmarks, "
+               "repositories), preferring ones from your findings, each with its kind and why it matters for this person.")
+JUSTIFY = ("\nEvery specific name in learn, projects, stack and read must either come from a finding (cite it in "
+           "based_on) or be standard, well-known practice for this person's level. Drop names you cannot justify for "
+           "this person; a shorter answer built on the key facts is better than a long list.")
+
+
+def also_in_graph(kg: KG, steps: list[dict], query: str, answer: dict, k: int = 8) -> list[dict]:
+    """KEY facts the answer did not use: shown beside the answer ("also in the graph"), never part of the judged text."""
+    named = {x for n in _names(answer or {}) if (x := _resolve(kg, n))}
+    out = []
+    for e in _select(kg, steps, query):
+        if e.get("_key") and not ({e["head"], e["tail"]} & named):
+            out.append({"edge_id": e["id"], "fact": f"{kg.name(e['head'])} {e['relation'].replace('_', ' ')} {kg.name(e['tail'])}",
+                        "status": e["status"]})
+    return out[:k]
+
+
+def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozenset = frozenset(),
+                on: frozenset = frozenset()) -> dict:
     """plan → research (multi-step) → evidence gate → notes → coverage reflection → advise → synthesis check.
     `off` switches parts off for ablations: plan, read (evidence gate), reflect (coverage reflection), revise
     (synthesis check), notes (advise straight from research)."""
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     kg = copy.copy(kg)
     kg.empty_hints, kg.truncation_notice, kg.neighbor_limit = True, True, GROUNDED_HARNESS["neighbor_limit"]
-    msgs = [{"role": "system", "content": SYS_GROUNDED + "\n\n" + kg.schema_card()},
+    kg.merge_twins = "twins" not in off
+    fit = "fit" in on                                # fit-first variant: profile in context, scoped advice, prerequisite gate
+    tools = TOOL_SPECS if "agent_tools" in off else AGENT_SPECS        # v3: + graph_query and top (ranking)
+    ctx = "" if "link" in off else "\n\n" + kg.coverage_card() + _linked_block(kg, task["question"])
+    msgs = [{"role": "system", "content": SYS_GROUNDED + (_profile_text(task) if fit else "") + "\n\n" + kg.schema_card() + ctx},
             {"role": "user", "content": task["question"]}]
     steps: list[dict] = []
     err, plan, notes, answer, prose, gates = None, [], [], None, "", {"read_gate": False, "reflection": [], "revised": False}
+    sel, rd, jus = "select" in on, "reading" in on, "justify" in on
+    gcls = AgenticGuidanceR if rd else AgenticGuidance
+    notes_prompt = lambda: NOTES + ("" if "facts" in off else _facts_block(kg, steps, query=task["question"] + " " + " ".join(plan),
+                                                                            select=sel)) + "\n" + NOT_COVERED
     try:
         if "plan" not in off:
             m, _ = llm.chat(msgs + [{"role": "user", "content": PLAN}], name="guidance_agentic_plan", max_tokens=800,
@@ -413,13 +619,13 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
             msgs.append({"role": "user", "content": RESEARCH + "\n\nSub-questions:\n" + "\n".join(f"{i + 1}. {q}" for i, q in enumerate(plan))})
         else:
             msgs.append({"role": "user", "content": RESEARCH})
-        prose = _tool_loop(llm, msgs, kg, steps, max_steps, "guidance_agentic_research")
+        prose = _tool_loop(llm, msgs, kg, steps, max_steps, "guidance_agentic_research", tools)
         if "read" not in off and not any(s_["tool"] in ("evidence", "passage") for s_ in steps):   # evidence gate
             gates["read_gate"] = True
             msgs.append({"role": "user", "content": READ_GATE})
-            prose += "\n" + _tool_loop(llm, msgs, kg, steps, 8, "guidance_agentic_read")
+            prose += "\n" + _tool_loop(llm, msgs, kg, steps, 8, "guidance_agentic_read", tools)
         for round_ in range(0 if "notes" in off else 2):                            # notes + coverage reflection
-            notes = _structured(llm, msgs + [{"role": "user", "content": NOTES}], Notes, "guidance_agentic_notes").get("findings", [])[:10]
+            notes = _structured(llm, msgs + [{"role": "user", "content": notes_prompt()}], Notes, "guidance_agentic_notes").get("findings", [])[:10]
             covered = {f.get("subquestion") for f in notes}
             missing = [i + 1 for i in range(len(plan)) if i + 1 not in covered]
             if not missing or round_ == 1 or "reflect" in off:
@@ -427,15 +633,24 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
             gates["reflection"] = missing
             msgs.append({"role": "user", "content": "These sub-questions have no finding yet: "
                          + "; ".join(f"{i}. {plan[i - 1]}" for i in missing) + ". Research just these, then summarise."})
-            prose += "\n" + _tool_loop(llm, msgs, kg, steps, 8, "guidance_agentic_reflect")
-        msgs += [{"role": "user", "content": NOTES}, {"role": "assistant", "content": json.dumps({"findings": notes})}]
-        answer = _structured(llm, msgs + [{"role": "user", "content": ADVISE}], AgenticGuidance, "guidance_agentic_advise")
+            prose += "\n" + _tool_loop(llm, msgs, kg, steps, 8, "guidance_agentic_reflect", tools)
+        msgs += [{"role": "user", "content": notes_prompt()}, {"role": "assistant", "content": json.dumps({"findings": notes})}]
+        advise_prompt = (ADVISE_FIT if fit else ADVISE) + (READ_ADVISE if rd else "") + (JUSTIFY if jus else "") + "\n" + NOT_COVERED
+        answer = _structured(llm, msgs + [{"role": "user", "content": advise_prompt}], gcls, "guidance_agentic_advise")
         unlinked = [p_["title"] for p_ in answer.get("projects") or [] if not p_.get("based_on")]
         if "revise" not in off and answer.get("projects") and len(unlinked) > len(answer["projects"]) / 2:   # synthesis check
             gates["revised"] = True
-            msgs += [{"role": "user", "content": ADVISE}, {"role": "assistant", "content": json.dumps(answer)},
+            msgs += [{"role": "user", "content": advise_prompt}, {"role": "assistant", "content": json.dumps(answer)},
                      {"role": "user", "content": REVISE.format(titles="; ".join(unlinked))}]
-            answer = _structured(llm, msgs, AgenticGuidance, "guidance_agentic_revise")
+            answer = _structured(llm, msgs, gcls, "guidance_agentic_revise")
+        if fit:                                                                     # prerequisite gate
+            ctx = msgs + [{"role": "user", "content": advise_prompt}, {"role": "assistant", "content": json.dumps(answer)}]
+            chk = _structured(llm, ctx + [{"role": "user", "content": PREREQ}], PrereqCheck, "guidance_agentic_prereq").get("checks", [])
+            gaps = [f"{c['project']}: {c['requirement']}" for c in chk if not c.get("person_has_it")]
+            gates["prereq_gaps"] = gaps
+            if gaps:
+                answer = _structured(llm, ctx + [{"role": "user", "content": PREREQ_REVISE.format(gaps="; ".join(gaps[:8]))}],
+                                     gcls, "guidance_agentic_prereq_revise")
         answer = _cap(answer)
     except BudgetExceeded:
         raise
@@ -451,17 +666,184 @@ def run_agentic(model: str, task: dict, kg: KG, max_steps: int = 18, off: frozen
                                                  & set(task.get("salient") or [])) / max(len(task.get("salient") or []), 1), 3),
                "plan_coverage": round(len({f.get("subquestion") for f in notes} & set(range(1, len(plan) + 1))) / max(len(plan), 1), 3)}
     out = {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model,
-           "condition": "kg_agentic" + (":" + ",".join(sorted(off)) if off else ""), "kb_version": kg.kb_version,
+           "condition": "kg_agentic" + ("+" + "+".join(sorted(on)) if on else "") + (":" + ",".join(sorted(off)) if off else ""),
+           "kb_version": kg.kb_version,
            "run_id": trace.RUN_ID, "plan": plan, "notes": notes,
            "gates": gates, "answer": answer, "steps": steps, "prose": prose[:6000], "error": err, "metrics": met,
-           "stratum": task.get("stratum"), "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+           "also_in_graph": also_in_graph(kg, steps, task["question"], answer) if (answer and jus) else None,
+           "stratum": task.get("stratum"), "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"guidance": task["id"], "model": model, "condition": "kg_agentic", "metrics": met, "gates": gates})
     return out
 
 
+# ---- memory-first, graph-enriched: draft from memory → check claims in the graph → revise only what evidence changes ----
+class Check(_S):
+    claim: str
+    kind: Literal["name", "fact", "who_now", "gap"]
+    lookup: str
+
+
+class Checks(_S):
+    checks: list[Check]
+
+
+class Change(_S):
+    kind: Literal["replaced", "added", "flagged", "gap", "removed"]
+    what: str
+    finding: int
+
+
+class EnrichedGuidance(_S):
+    summary: str
+    learn: list[str]
+    learn_based_on: list[int]
+    projects: list[LinkedProject]
+    experiments: list[Experiment]
+    stack: list[str]
+    sources: list[str]
+    changes: list[Change]
+
+
+class EnrichedGuidanceR(EnrichedGuidance):
+    read: list[ReadItem]
+
+
+CHECKS = ("Here is a draft of your advice, written from your own knowledge:\n{draft}\n\nList 5-8 things in it that a "
+          "knowledge graph of the AI ecosystem could confirm, correct or sharpen: named tools, organisations, datasets "
+          "and benchmarks (kind `name`); factual claims about who uses or offers what (kind `fact`); and always one "
+          "`who_now` check (which organisations do this in practice now) and one `gap` check (what is missing or "
+          "unverified). For each, write what to look up.")
+ENRICH_RESEARCH = ("Check these items with the tools. Find the entity, follow its relations, and call `evidence` on "
+                   "the edges you will rely on. Record 'not in the graph' when a lookup finds nothing; that is not "
+                   "proof the claim is false.\nThen explore beyond the draft, because a check list only finds what the "
+                   "draft already mentions: start from the entities in the question, and run at least one `top` or "
+                   "`graph_query` for who does this in practice now and with which methods, tools or data. When done, "
+                   "reply with a short summary.")
+ENRICH = ("Now revise the draft. Keep its structure, its learning path and its projects where the evidence does not "
+          "change them: the draft is the plan. Change only what the findings change:\n"
+          "- replace a name the findings show is wrong or dated;\n"
+          "- add a specific organisation, tool, dataset or benchmark the findings show is used for this;\n"
+          "- flag a fact the evidence marks as self-claimed, or one the evidence contradicts (never one the graph merely "
+          "does not cover);\n"
+          "- state a gap the findings show (e.g. no benchmark exists for X), if it changes the plan.\n"
+          "List every change in `changes` with the finding index (0-based) behind it. Projects list in `based_on` the "
+          "findings they use (empty if unchanged from the draft). Limits: learn ≤ 6, projects 2-3 (stack ≤ 6 each), "
+          "experiments 1-2, stack ≤ 8. Do not mention your tools or a graph in the text; put edge ids only in `sources`.")
+
+
+def run_enrich(model: str, task: dict, kg: KG, draft: dict, max_steps: int = 14, on: frozenset = frozenset()) -> dict:
+    """Memory-first: `draft` is this model's closed-book answer (the same one the closed-book condition is scored
+    on), so the comparison isolates what grounding changes. Returns the revised answer plus the recorded diff."""
+    llm = LLM(model)
+    t0 = time.time()
+    kg = copy.copy(kg)
+    kg.empty_hints, kg.truncation_notice, kg.neighbor_limit = True, True, GROUNDED_HARNESS["neighbor_limit"]
+    kg.merge_twins = True
+    d = draft.get("answer") or {}
+    msgs = [{"role": "system", "content": SYS_GROUNDED + "\n\n" + kg.schema_card() + "\n\n" + kg.coverage_card()
+             + _linked_block(kg, task["question"])},
+            {"role": "user", "content": task["question"]}]
+    steps: list[dict] = []
+    err, checks, notes, answer, prose = None, [], [], None, ""
+    try:
+        checks = _structured(llm, msgs + [{"role": "user", "content": CHECKS.format(draft=_blind(d))}], Checks,
+                             "guidance_enrich_checks", max_tokens=1500).get("checks", [])[:8]
+        msgs.append({"role": "user", "content": ENRICH_RESEARCH + "\n\nItems:\n" +
+                     "\n".join(f"{i + 1}. [{c['kind']}] {c['claim']} → look up: {c['lookup']}" for i, c in enumerate(checks))})
+        prose = _tool_loop(llm, msgs, kg, steps, max_steps, "guidance_enrich_research", AGENT_SPECS)
+        sel, rd, jus = "select" in on, "reading" in on, "justify" in on
+        q_ = task["question"] + " " + " ".join(c.get("claim", "") for c in checks)
+        np_ = NOTES + _facts_block(kg, steps, query=q_, select=sel) + "\n" + NOT_COVERED
+        notes = _structured(llm, msgs + [{"role": "user", "content": np_}], Notes, "guidance_enrich_notes").get("findings", [])[:10]
+        msgs += [{"role": "user", "content": np_}, {"role": "assistant", "content": json.dumps({"findings": notes})},
+                 {"role": "user", "content": "The draft again:\n" + _blind(d) + "\n\n" + ENRICH
+                  + (" Keep or improve the draft's `read` list the same way." + READ_ADVISE if rd else "") + (JUSTIFY if jus else "")}]
+        answer = _structured(llm, msgs, EnrichedGuidanceR if rd else EnrichedGuidance, "guidance_enrich_revise")
+        changes = answer.pop("changes", [])
+        answer = _cap(answer)
+    except BudgetExceeded:
+        raise
+    except (RuntimeError, ValueError) as e:
+        err, changes = str(e)[:200], []
+    met = metrics(kg, answer, task) if answer else None
+    if met:
+        before, after = set(_names(d)), set(_names(answer))
+        met = {**met, "findings": len(notes), "changes": len(changes),
+               "changes_by_kind": {k: sum(1 for c in changes if c.get("kind") == k) for k in ("replaced", "added", "flagged", "gap", "removed")},
+               "names_added": sorted(after - before), "names_removed": sorted(before - after),
+               "evidence_reads": sum(1 for s_ in steps if s_["tool"] in ("evidence", "passage", "documents")),
+               "salient_in_findings": round(len({x for f in notes for n in f.get("entities") or [] if (x := _resolve(kg, n))}
+                                                 & set(task.get("salient") or [])) / max(len(task.get("salient") or []), 1), 3)}
+    out = {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model,
+           "condition": "kg_enrich", "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "plan": [c.get("claim") for c in checks],
+           "checks": checks, "notes": notes, "changes": changes, "draft": d, "answer": answer, "steps": steps,
+           "also_in_graph": also_in_graph(kg, steps, task["question"], answer) if (answer and "justify" in on) else None,
+           "prose": prose[:6000], "error": err, "metrics": met, "stratum": task.get("stratum"),
+           "cost_usd": round(llm.spent + (draft.get("cost_usd") or 0), 5), "latency_s": round(time.time() - t0, 1)}
+    trace.event("agent", {"guidance": task["id"], "model": model, "condition": "kg_enrich", "metrics": met})
+    return out
+
+
+# ---- typical RAG / context engineering: one retrieval pass, context packed into the prompt, no tool use ----
+SYS_RAG = ("You advise students and engineers on AI work. Below is CONTEXT retrieved for this question from a knowledge "
+           "graph of the AI ecosystem (facts with an evidence status, and source passages). Use it where it is relevant, "
+           "prefer its specific names, and say when a fact is only self-claimed. Use your own knowledge where the context "
+           "is silent. Answer in prose; you will then be asked for the structured form.")
+
+
+def rag_context(kg: KG, question: str, per_entity: int = 12, k_passages: int = 6) -> tuple[str, dict]:
+    """Standard GraphRAG context: linked entities → their best-supported edges; plus passage search (PPR + BM25)."""
+    linked = kg.link(question, k=5)
+    edges, seen = [], set()
+    for x in linked:
+        es = [kg.edges[i] for i in kg.adj.get(x["id"], []) if kg.edges[i]["status"] != "unsupported"]
+        es.sort(key=lambda e: (-ST.index(e["status"]), -e["strength"]))
+        for e in es[:per_entity]:
+            if e["id"] not in seen:
+                seen.add(e["id"])
+                edges.append(e)
+    st = kg.search_text(question, k=k_passages)
+    for d in st.get("supporting_edges") or []:
+        i = d.get("edge_id") if isinstance(d, dict) else d
+        if i in kg.edges and i not in seen:
+            seen.add(i)
+            edges.append(kg.edges[i])
+    L = ["CONTEXT", "Facts:"] + [f"- {kg.name(e['head'])} {e['relation'].replace('_', ' ')} {kg.name(e['tail'])} ({e['status']})"
+                                for e in edges[:60]]
+    L += ["", "Passages:"] + [f"- {p_.get('title') or ''}: {p_['text'][:500]}" for p_ in st.get("passages") or []]
+    ents = {x["id"] for x in linked} | {e["head"] for e in edges} | {e["tail"] for e in edges}
+    return "\n".join(L), {"entities": sorted(ents), "edges": [e["id"] for e in edges[:60]],
+                          "chunks": [p_["chunk_id"] for p_ in st.get("passages") or []]}
+
+
+def run_rag(model: str, task: dict, kg: KG, on: frozenset = frozenset()) -> dict:
+    llm = LLM(model)
+    t0 = time.time()
+    ctx, touched = rag_context(kg, task["question"])
+    msgs = [{"role": "system", "content": SYS_RAG}, {"role": "user", "content": task["question"] + "\n\n" + ctx}]
+    err, prose, answer = None, "", None
+    try:
+        m, _ = llm.chat(msgs, name="guidance_rag", max_tokens=3500, reasoning_max_tokens=AUTO)
+        prose = m.get("content") or ""
+        rd = "reading" in on
+        m2, _ = llm.chat(msgs + [{"role": "assistant", "content": prose}, {"role": "user", "content": FORMAT + (READ_FMT if rd else "")}],
+                         name="guidance_rag_format", max_tokens=3000, reasoning_max_tokens=AUTO, schema=SCHEMA_R if rd else SCHEMA)
+        answer = _cap(json.loads(m2.get("content") or "{}"))
+    except BudgetExceeded:
+        raise
+    except (RuntimeError, ValueError) as e:
+        err = str(e)[:200]
+    return {"task_id": task["id"], "persona": task["persona"], "question": task["question"], "model": model,
+            "condition": "kg_rag", "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "answer": answer,
+            "steps": [{"step": 0, "tool": "rag_context", "args": "", "thought": "", "touched": touched, "phase": "rag"}],
+            "context_chars": len(ctx), "prose": prose[:6000], "error": err,
+            "metrics": metrics(kg, answer, task) if answer else None, "stratum": task.get("stratum"),
+            "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
+
+
 # ---- deterministic, KB-checkable metrics -------------------------------------------------------------------
 def _names(a: dict) -> list[str]:
-    names = list(a.get("stack") or []) + list(a.get("learn") or [])
+    names = list(a.get("stack") or []) + list(a.get("learn") or []) + [r_.get("title", "") for r_ in a.get("read") or []]
     for p in a.get("projects") or []:
         names += list(p.get("stack") or [])
     return [n.strip() for n in names if n and n.strip()]
@@ -494,9 +876,9 @@ def _mentions(kg: KG, a: dict) -> list[str]:
         for i in range(len(words) - n + 1):
             g = " ".join(words[i:i + n])
             if len(g) >= 3:
-                m = kg.match(g, k=1, exact_first=True)
-                if m and m[0][0] >= 0.99 and kg.ents[m[0][1]]["type"] in ("org", "technology", "method", "model", "benchmark"):
-                    found.append(kg.name(m[0][1]))
+                x = kg.exact(g)                       # exact names only: a fuzzy scan per n-gram is far too slow
+                if x and kg.ents[x]["type"] in ("org", "technology", "method", "model", "benchmark"):
+                    found.append(kg.name(x))
     return found
 
 
@@ -528,13 +910,36 @@ class Pref(_S):
     winner: Literal["A", "B", "tie"]
 
 
-_LEAK = re.compile(r"(according to|from|in|per) (the|our|my) (knowledge )?graph|knowledge graph|\bKG\b|edge[ _]?id", re.IGNORECASE)
+_LEAK = re.compile(r"\s?(according to|from|in|per) (the|our|my) (knowledge )?graph|knowledge graph|\bKG\b|edge[ _]?id", re.IGNORECASE)
+# "The graph shows X" survived the filter above (found 2026-11-22 in one pilot answer): name the source neutrally
+# instead of deleting words, so the sentence still reads. "CUDA Graph" and "graph neural network" are left alone.
+_LEAK_THE = re.compile(r"\b(the|this|our|my) graph\b(?! neural)", re.IGNORECASE)
+
+
+_CITE = re.compile(r"\[\s*(?:[a-z_]+:[^\]\s,]+(?:\|[^\]\s,]+)+)(?:\s*,\s*[a-z_]+:[^\]\s,]+(?:\|[^\]\s,]+)+)*\s*\]")
 
 
 def _blind(a: dict) -> str:
-    a = {k: v for k, v in (a or {}).items() if k != "sources"}
-    text = re.sub(r"\[[^\]]{6,}\]", "", json.dumps(a, ensure_ascii=False, indent=1))      # inline edge-id citations
-    return _LEAK.sub("", text)
+    """The same plain-text rendering for every condition: summary, learning path, projects, experiments, stack.
+    Internal pointers (sources, based_on) are dropped; inline edge-id citations and mentions of a graph are removed.
+    (A previous version stripped every bracketed JSON list over six characters, which deleted whole sections.)"""
+    a = a or {}
+    L = ["Summary: " + (a.get("summary") or ""), "", "What to learn, in order:"]
+    L += [f"{i + 1}. {x}" for i, x in enumerate(a.get("learn") or [])]
+    L += ["", "Projects:"]
+    for p_ in a.get("projects") or []:
+        L += [f"- {p_.get('title', '')}: {p_.get('what', '')}", f"  Stack: {', '.join(p_.get('stack') or [])}",
+              f"  First step: {p_.get('first_step', '')}"]
+    L += ["", "Experiments:"]
+    for e in a.get("experiments") or []:
+        L += [f"- {e.get('question', '')}", (f"  Baseline: {e.get('baseline', '')} · Change: {e.get('change', '')} · "
+                                             f"Measure: {e.get('measure', '')}")]
+    if a.get("read"):
+        L += ["", "What to read first:"] + [f"- {r_.get('title', '')} ({r_.get('kind', '')}): {r_.get('why', '')}" for r_ in a["read"]]
+    L += ["", "Stack: " + ", ".join(a.get("stack") or [])]
+    text = "\n".join(L)
+    text = _LEAK.sub("", _CITE.sub("", text))
+    return _LEAK_THE.sub(lambda m: "The evidence" if m.group(1)[0].isupper() else "the evidence", text)
 
 
 def fact_sheet(kg: KG, *answers: dict) -> str:

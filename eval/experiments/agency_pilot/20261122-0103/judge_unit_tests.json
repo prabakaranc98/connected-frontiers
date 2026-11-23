@@ -1,0 +1,242 @@
+{
+ "summary": {
+  "z-ai/glm-5.3": {
+   "detected": 1.0,
+   "by_kind": {
+    "generic": 1.0,
+    "false_claim": 1.0,
+    "infeasible": 1.0,
+    "no_baseline": 1.0
+   },
+   "passes": true
+  },
+  "nvidia/nemotron-3.5-super-vl": {
+   "detected": 0.917,
+   "by_kind": {
+    "generic": 1.0,
+    "false_claim": 0.667,
+    "infeasible": 1.0,
+    "no_baseline": 1.0
+   },
+   "passes": true
+  }
+ },
+ "rows": [
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-undergrad_capstone-00",
+   "kind": "generic",
+   "dim": "insight",
+   "before": 4,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-undergrad_capstone-00",
+   "kind": "false_claim",
+   "dim": "accuracy",
+   "before": 4,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-undergrad_capstone-00",
+   "kind": "infeasible",
+   "dim": "fit",
+   "before": 4,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-undergrad_capstone-00",
+   "kind": "no_baseline",
+   "dim": "experiment_rigor",
+   "before": 4,
+   "after": 1,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-undergrad_capstone-00",
+   "kind": "generic",
+   "dim": "insight",
+   "before": 4,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-undergrad_capstone-00",
+   "kind": "false_claim",
+   "dim": "accuracy",
+   "before": 3,
+   "after": 4,
+   "detected": false
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-undergrad_capstone-00",
+   "kind": "infeasible",
+   "dim": "fit",
+   "before": 5,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-undergrad_capstone-00",
+   "kind": "no_baseline",
+   "dim": "experiment_rigor",
+   "before": 4,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-career_switcher-01",
+   "kind": "generic",
+   "dim": "insight",
+   "before": 5,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-career_switcher-01",
+   "kind": "false_claim",
+   "dim": "accuracy",
+   "before": 5,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-career_switcher-01",
+   "kind": "infeasible",
+   "dim": "fit",
+   "before": 5,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-career_switcher-01",
+   "kind": "no_baseline",
+   "dim": "experiment_rigor",
+   "before": 5,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-career_switcher-01",
+   "kind": "generic",
+   "dim": "insight",
+   "before": 5,
+   "after": 4,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-career_switcher-01",
+   "kind": "false_claim",
+   "dim": "accuracy",
+   "before": 4,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-career_switcher-01",
+   "kind": "infeasible",
+   "dim": "fit",
+   "before": 5,
+   "after": 4,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-career_switcher-01",
+   "kind": "no_baseline",
+   "dim": "experiment_rigor",
+   "before": 5,
+   "after": 1,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-senior_research_engineer-02",
+   "kind": "generic",
+   "dim": "insight",
+   "before": 4,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-senior_research_engineer-02",
+   "kind": "false_claim",
+   "dim": "accuracy",
+   "before": 4,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-senior_research_engineer-02",
+   "kind": "infeasible",
+   "dim": "fit",
+   "before": 4,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "z-ai/glm-5.3",
+   "task": "A-senior_research_engineer-02",
+   "kind": "no_baseline",
+   "dim": "experiment_rigor",
+   "before": 5,
+   "after": 3,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-senior_research_engineer-02",
+   "kind": "generic",
+   "dim": "insight",
+   "before": 5,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-senior_research_engineer-02",
+   "kind": "false_claim",
+   "dim": "accuracy",
+   "before": 5,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-senior_research_engineer-02",
+   "kind": "infeasible",
+   "dim": "fit",
+   "before": 5,
+   "after": 2,
+   "detected": true
+  },
+  {
+   "judge": "nvidia/nemotron-3.5-super-vl",
+   "task": "A-senior_research_engineer-02",
+   "kind": "no_baseline",
+   "dim": "experiment_rigor",
+   "before": 5,
+   "after": 1,
+   "detected": true
+  }
+ ]
+}

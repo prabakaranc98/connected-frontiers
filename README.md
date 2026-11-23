@@ -11,17 +11,17 @@ What started as a curiosity is now an end-to-end system: curation and indexing o
 a harness for inference agents, task curation, and evaluation testbeds, used to test whether grounding
 in the graph actually helps people.
 
-**Status (2026-11-22):** v0.1. The crawl round is built into KB `v20261122-0022`. The agent harness was
+**Status (2026-11-22):** v0.1.1. The crawl round plus the Hugging Face objects are built into KB `v20261122-0143`. The agent harness was
 improved by a measured loop (held-out confirmed); the agency testbed (persona tasks, persona and expert
-LLM judges) is running its pilot. Everything below is measured, with intervals, and limits are stated.
+LLM judges) has run its pilot (results below). Everything below is measured, with intervals, and limits are stated.
 
 | v0.1 at a glance | |
 |---|---|
-| Graph (KB `v20261122-0022`) | 1,921 pages · 254 publishers · **15,544 entities · 17,930 edges** · 22,035 quoted claims · 133 segments · Hugging Face lineage for 169 mapped orgs (partly attached; see backlog) |
+| Graph (KB `v20261122-0143`) | 1,921 pages · 254 publishers · **16,940 entities · 19,812 edges** (2,363 verified) · 22,035 quoted claims · 149 segments · 2,411 Hugging Face rows (models, datasets, lineage) for 171 mapped orgs |
 | Truth (silver judges re-read the cited page) | verifier-accepted edges supported 93–97% · rejected ones 50% (the verifier is too strict) · ER accuracy 0.86 |
 | Grounded QA (10 sessions, KB `v20261121-1821`) | Inkling-2-small: graph tools **0.86** F1 vs **0.19** from memory (paired Δ +0.67 [+0.56, +0.76]) |
 | Harness improvement (14 held-out sessions) | schema card + longer neighbour lists: graph tools 0.71 → **0.94** F1, graph query 0.57 → **0.98** (Inkling); every interval above 0 |
-| Cost | **$8.9** of LLM spend in total, small open-weight models |
+| Cost | **$9.8** of LLM spend in total, small open-weight models |
 
 ![Architecture](docs/architecture.png)
 
@@ -155,9 +155,99 @@ The next question is whether the graph helps people decide what to learn, build 
 profiles (undergraduate to senior research engineer, career switcher, forward-deployed engineer) get
 tasks curated from the graph; answers from memory, plain tools and the agentic harness are judged by
 persona and expert LLM judges, after the judges pass unit tests. Design and hypotheses:
-[docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md). On one capstone question, the agentic harness built its advice
-from 8 cited findings and surfaced 13 organisations that no answer from memory named; whether that holds
-across tasks is what the testbed measures.
+[docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md).
+
+**Pilot result (4 tasks, Inkling-2-small; too small to generalise).** Grounding wins where the answer depends on
+specific, current facts about organisations: the forward-deployed engineer's customer (preferred 1.00) and the
+career switcher's "which tools do companies use" (0.75-1.00). It loses where the task is learning or researching a
+well-known method: the undergrad capstone (0.00) and the senior research engineer (0.00-0.25). A fit-first harness
+variant did not close that gap and was not promoted. The judges pass their unit tests, but show position bias (62%
+first-shown) and a ceiling (95% of GLM scores are 4-5), so the next run moves to checklist scoring.
+
+### What the agent found in the graph (pilot discoveries)
+
+One setup: Inkling-2-small with the agentic harness (plan → research → read evidence → findings → advice), KB
+`v20261122-0022`. Every finding cites graph edges, and each edge carries its evidence status. **Self-claimed means
+the organisation said it about itself, not that it is true.** These are what the graph holds, not verified facts
+about the world.
+
+| Who asked | Finding the advice was built on | Evidence |
+|---|---|---|
+| **Forward-deployed engineer**, customer GEP Worldwide (procurement) | GEP runs a streaming-plus-search stack: Confluent Cloud, Kafka, Azure OpenAI/GPT, MongoDB, Elasticsearch. Only Confluent is confirmed by the counterparty; the rest comes from a Confluent customer story, so validate it on site | 8 edges; 1 counterparty-confirmed |
+| | The graph has no procurement or supply-chain benchmarks, so the first deliverable should be a customer-built golden set with rubric pass rates on held-out splits and citation-weighted scoring, the pattern the graph shows for Harvey and Applied Compute | 5 + 2 edges |
+| | RAG plus agent orchestration and observability is the dominant enterprise deployment pattern (Morgan Stanley, Notion, Infor, Atomicwork, France Travail, Dell AI Data Platform) | 6 edges |
+| **Career switcher** into RL, $100 budget | RL demand in the graph is in LLM post-training, alignment and agents, not robotics or games, and there are no Atari/MuJoCo-style benchmark entities | 7 + 3 edges |
+| | The strongest verified artifact nearby is Anthropic's `hh-rlhf` on Hugging Face, so the project is a small preference tune on it, followed by a reward-hacking audit (an evaluation-integrity gap; Abundant publishes on reward hacking in coding agents) | 3 edges, 1 verified |
+| | Hiring signals point to research engineer and applied-ML roles (Anthropic, Fireworks AI) rather than research scientist roles | 5 edges |
+| **Undergrad capstone**, speculative decoding | Speculative decoding lives inside serving frameworks (vLLM, SGLang), not standalone scripts, and there is no standard benchmark suite: evaluation is assembled from ShareGPT, prefill/decode-heavy sets and GSM8K/GPQA, using acceptance rate and end-to-end speedup | 6 + 3 + 7 edges |
+| | Variants in use: draft-model, Medusa/EAGLE-style heads (vLLM), EAGLE-3 (Magicare AI), runtime-adapting speculators (Together AI's ATLAS, self-claimed) | 9 edges |
+| **Senior research engineer**, FlashAttention-3 | Nearly every FA-3 result in the graph is self-claimed by Together AI, vLLM or SGLang, with no third-party verification, so the informative experiment is an independent, reproducible FA-2 vs FA-3 benchmark | 3 edges |
+| | Competing kernel work to baseline against: ThunderKittens (Together AI claims 1.8× over FA-3 on Blackwell, self-claimed); SGLang's portability across FlashInfer, FlashMLA and Triton vs FA-3's Hopper-only design | 4 + 6 edges |
+
+What stands out across the four:
+- The agent reports **gaps** as findings: no GEP hiring edges, no procurement benchmarks, no independent FA-3
+  verification. A model answering from memory cannot say what is missing from the evidence.
+- The **evidence status** changes the advice: "validate the stack on site", "the gap is independent
+  verification".
+- The judges still preferred the memory answers for the capstone and the senior RE. The grounded answer was more
+  specific, but not a better plan for a learner. The pilot result above says the same.
+
+The full trajectories (plan, every tool call, findings with edge ids, advice, judge scores) are written by
+`cf experiment` to `eval/experiments/<name>/<stamp>/` and packaged by `cf release` as `runs/agency_trajectories`
+and `labels/agency_judgments` for the Hugging Face collection (pushed privately, on approval).
+
+### Does grounding make guidance better? (latest results)
+
+![Results poster](docs/posters/grounding-results.png)
+
+*Poster generated from the run files by `scripts/make_results_poster.py` ([SVG](docs/posters/grounding-results.svg)).*
+
+`cf usecases` generates task sets from a use-case catalogue, answers them under each condition (3 trials for the main
+model) and scores every stage. Two studies, 22 generated tasks, $5.6 in total:
+
+| Comparison (pairwise, both orders, persona + expert roles) | GLM | Nemotron | GLM, length-matched |
+|---|---|---|---|
+| small model, memory-first vs **397B model from memory** | 0.98 | 0.95 | **0.98** |
+| memory-first (draft from memory, edited with the graph) vs memory | 0.91 | 0.84 | 0.59 [0.36–0.82] |
+| agentic (plan from graph facts) vs memory | 0.50 | 0.61 | 0.50 |
+
+- **Robust:** a small model that edits its own draft with the graph beats a 397B model answering from memory, under
+  two judge families and with answer length matched.
+- **Not yet robust:** memory-first vs the same model from memory. Much of the preference goes away when both
+  answers are cut to the same length, although cutting may remove exactly what the graph added.
+- **Objects** (models, papers, methods, tools, benchmarks, datasets): agentic retrieval reaches nearly all gold objects
+  of every type except tool stacks (0.52, a second hop). **Papers are retrieved every time and named in no answer**:
+  the advice format has no reading-list slot.
+
+**What the graph changed in a memory draft** (real edits recorded by memory-first, Inkling-2-small):
+
+| Question | Edit |
+|---|---|
+| Should we adopt Ai2 ScholarQA? | *replaced* the generic "OpenAI or Anthropic API" with Claude 3.7 Sonnet, the model ScholarQA is built on; added Open S2ORC and Vespa from its documented architecture |
+| Should we move to Mixture-of-Experts? | *softened* "MoE is production-proven": only one org-level signal exists, self-claimed; promoted DeepSeek-V3 (verified offering) as the baseline |
+| First meeting with NBCUniversal as a customer | *stated a gap*: no deployment workflow, methods or models are documented, so discovery comes first; *added* SAP S/4HANA, flagged as self-claimed |
+| Benchmarking on ARC-AGI | *added* o3-preview and o4-mini scores as baselines; *flagged* that every ARC-AGI result in the graph is claimed, none verified |
+| Capstone on quantization (**failure**) | demoted QAT to a stretch goal because the graph "has no usable coverage"; QAT is well established, the graph just lacks it |
+
+Full tables: [docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md) · how retrieval is measured: [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
+
+### Retrieval, grounding and use (agentic GraphRAG)
+
+On 6 hand-written questions, each condition is scored at three stages against question-aware gold facts
+([docs/RETRIEVAL.md](docs/RETRIEVAL.md)):
+
+| Condition | retrieved | grounded | used in answer |
+|---|---|---|---|
+| typical GraphRAG (one pass, packed context) | 0.18 | – | 0.09 |
+| plain tool loop | 0.65 | – | 0.12 |
+| agentic harness, start → after fixes | 0.61 → **0.76** | 0.33 → 0.44 | 0.14 → 0.21 |
+| memory-first (draft, then check and add) | 0.60 → 0.68 | 0.45 → 0.50 | 0.18 → **0.29** |
+
+Typical GraphRAG ranks facts without the question in mind, so it retrieves the wrong ones. Agents retrieve most of
+the gold but use little of it: the bottleneck is selection and synthesis, not retrieval. Fixes so far: a ranking tool,
+entity linking, broader entities for thin nodes, merging org/technology twins left by entity resolution (395 names),
+handing retrieved facts to the notes step, and the rule that "not in the graph" is not "false". One trial per cell;
+differences under about 0.1 are noise.
 
 ## Quickstart
 
@@ -221,6 +311,7 @@ connected-frontiers/
 | [PROBLEM.md](PROBLEM.md) | north star, user, task, objective: the eight objects |
 | [docs/DESIGN.md](docs/DESIGN.md) | **layered architecture** (acquire → extract/verify → curate → represent → use → evaluate → release), crawl algorithm, understanding views |
 | [docs/AGENCY_EVAL.md](docs/AGENCY_EVAL.md) | persona-based evaluation of guidance: task curation, judges, judge validation, hypotheses |
+| [docs/RETRIEVAL.md](docs/RETRIEVAL.md) | **agentic GraphRAG vs typical GraphRAG vs tool loop**: retrieved → grounded → used, what was fixed, references |
 | [docs/DISCOVERY.md](docs/DISCOVERY.md) | opportunity discovery and education uses (owner priorities) |
 | [EVAL.md](EVAL.md) | metrics, frozen test sets, baselines, results log |
 | [docs/EVIDENCE.md](docs/EVIDENCE.md) | truth vs claim: evidence grading, Reasoner wording rules |
@@ -240,3 +331,22 @@ connected-frontiers/
   failures are logged.
 - **Polite crawling.** Respect robots.txt, rate-limit requests, cache raw pages, no logins, and no
   personal data.
+
+## References
+
+GraphRAG and retrieval work this project builds on or compares against (ids verified on arXiv, 2026-11-22; full
+list with mechanisms in [docs/RETRIEVAL.md](docs/RETRIEVAL.md#references)):
+Edge et al. 2024, *GraphRAG* ([2404.16130](https://arxiv.org/abs/2404.16130)) ·
+Gutiérrez et al. 2024/2025, *HippoRAG* and *HippoRAG 2* ([2405.14831](https://arxiv.org/abs/2405.14831), [2502.14802](https://arxiv.org/abs/2502.14802)) ·
+Sun et al. 2023, *Think-on-Graph* ([2307.07697](https://arxiv.org/abs/2307.07697)) ·
+Luo et al. 2023, *Reasoning on Graphs* ([2310.01061](https://arxiv.org/abs/2310.01061)) ·
+Jiang et al. 2024, *KG-Agent* ([2402.11163](https://arxiv.org/abs/2402.11163)) ·
+Jin et al. 2024, *Graph Chain-of-Thought* ([2404.07103](https://arxiv.org/abs/2404.07103)) ·
+Guo et al. 2024, *LightRAG* ([2410.05779](https://arxiv.org/abs/2410.05779)) ·
+Peng et al. 2024, *Graph RAG survey* ([2408.08921](https://arxiv.org/abs/2408.08921)) ·
+Singh et al. 2025, *Agentic RAG survey* ([2501.09136](https://arxiv.org/abs/2501.09136)) ·
+Yao et al. 2022, *ReAct* ([2210.03629](https://arxiv.org/abs/2210.03629)) ·
+Asai et al. 2023, *Self-RAG* ([2310.11511](https://arxiv.org/abs/2310.11511)) ·
+Liu et al. 2023, *Lost in the Middle* ([2307.03172](https://arxiv.org/abs/2307.03172)) ·
+Ru et al. 2024, *RAGChecker* ([2408.08067](https://arxiv.org/abs/2408.08067)) ·
+Andersen, Chung, Lang 2006, *PPR push* ([doi](https://doi.org/10.1109/FOCS.2006.44)).

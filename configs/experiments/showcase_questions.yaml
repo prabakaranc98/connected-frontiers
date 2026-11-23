@@ -1,0 +1,74 @@
+# Hand-written questions where the answer should depend on specific, current facts about organisations
+# (where the pilot suggests the graph helps), plus one control where memory should be enough.
+# Run: CF_LLM_BUDGET_USD=1 uv run python scripts/run_showcase_questions.py
+model: thinkingmachines/inkling-2-small
+conditions: [closed_book, kg_rag, kg_tools, kg_agentic, kg_enrich]
+checklist_scorers: [code, jev]
+questions:
+  - id: S-fde-harvey
+    persona: forward_deployed
+    anchor: org:harvey
+    expect: "grounding helps (a named customer's stack, methods and customers)"
+    gold:
+      - {anchor: "org:harvey", relations: [uses_tech, uses_method, offers, works_on, partners_with], direction: out}
+    question: >-
+      I'm a forward-deployed engineer and Harvey, the legal AI company, is becoming our customer in two weeks.
+      Which systems and data sources will their product need to connect to, how do they build and improve their
+      agents, and what should I prototype and measure before the first meeting?
+  - id: S-startup-rl-post-training
+    persona: applied_ml_startup
+    anchor: org:applied-compute
+    expect: "grounding helps (who sells RL post-training, which methods, which customers)"
+    gold:
+      - {anchor: "method:reinforcement-learning", relations: [uses_method, offers], direction: in}
+      - {anchor: "method:rl-post-training", direction: in}
+      - {anchor: "method:grpo", relations: [uses_method, offers], direction: in}
+      - {anchor: "method:online-rl", direction: in}
+    question: >-
+      We're a 20-person startup with an LLM agent in production. Should we post-train our own model with RL
+      instead of prompting a frontier API? Which companies do this as a service or in-house today, which methods
+      do they use, and what would a two-week go/no-go prototype look like?
+  - id: S-switcher-fde-jobs
+    persona: career_switcher
+    anchor: role:forward-deployed-engineer
+    expect: "grounding helps (who hires for the role, what their stacks are)"
+    gold:
+      - {anchor: "role:forward-deployed-engineer", relations: [hires_for], direction: in}
+      - {start: "role:forward-deployed-engineer", path: [{relation: hires_for, direction: in, type: org}, {relation: uses_tech, direction: out}]}
+      - {start: "role:forward-deployed-engineer", path: [{relation: hires_for, direction: in, type: org}, {relation: uses_method, direction: out}]}
+    question: >-
+      I'm a backend engineer and I want to become a forward-deployed engineer at an AI company. Which companies
+      hire for this role right now, what do they actually use, and which two portfolio projects would make me
+      credible to them? I have evenings for three months and about $100 for compute.
+  - id: S-junior-finetune-base
+    persona: junior_ml_engineer
+    anchor: model:qwen3.8-27b
+    expect: "grounding helps (Hugging Face lineage: which open bases people build on now)"
+    gold:
+      - {top: {relation: builds_on, direction: in, type: model, k: 5}}
+    question: >-
+      Our team wants to fine-tune an open model for an internal assistant. Which open base models are people
+      actually building on right now, what do the derivatives typically change, and what project would let me
+      own this for the team and prove it worked?
+  - id: S-senior-agentic-rl
+    persona: senior_research_engineer
+    anchor: method:agentic-rl
+    expect: "grounding helps (who does agentic RL for coding agents, with which methods and baselines)"
+    gold:
+      - {anchor: "method:agentic-rl", direction: in}
+      - {anchor: "method:reinforcement-learning", relations: [uses_method], direction: in}
+      - {anchor: "benchmark:swe-bench-pro", relations: [measured_on], direction: in}
+    question: >-
+      I'm a senior research engineer looking at RL for coding agents. Who is doing agentic RL in practice, which
+      methods and infrastructure do they report, and which baselines and controlled experiments would be most
+      informative for our team this quarter?
+  - id: S-control-lora-basics
+    persona: undergrad_capstone
+    anchor: method:lora
+    expect: "control (textbook method; memory should be enough)"
+    gold:
+      - {anchor: "method:lora", relations: [uses_method, offers, subtype_of], direction: both}
+    question: >-
+      I'm a final-year CS student. I want to really understand LoRA by implementing it myself for my capstone.
+      What should I learn first, what should I build, and which experiments would show I understand it? I have a
+      laptop and one rented GPU for 10 weeks.

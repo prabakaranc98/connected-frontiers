@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1100" viewBox="0 0 1400 1100" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1400" height="1100" fill="#f8fafc"/>
+<text x="40" y="58" font-size="30" fill="#0f172a" font-weight="800" text-anchor="start">Does grounding in a knowledge graph make guidance better?</text>
+<text x="40" y="88" font-size="15" fill="#475569" font-weight="400" text-anchor="start">Connected Frontiers · 11 generated use-case tasks + 11 object tasks · KB v20261122-0143 · small model Inkling-2-small vs Qwen-397B from memory</text>
+<text x="40" y="114" font-size="15" fill="#2563eb" font-weight="700" text-anchor="start">Robust: a small model that edits its own draft with the graph beats a 397B model from memory (0.98, also length-matched).</text>
+<text x="40" y="134" font-size="15" fill="#475569" font-weight="700" text-anchor="start">Not yet robust: memory-first vs memory (0.91, but 0.59 when answer length is matched).</text>
+<rect x="40" y="160" width="660" height="400" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="60" y="192" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Which answer do judges prefer?</text>
+<text x="60" y="212" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">P(first answer preferred) · both orders × persona and expert roles · 95% interval · 0.5 = no preference</text>
+<line x1="340.0" y1="254" x2="340.0" y2="520" stroke="#e2e8f0" stroke-dasharray=""/>
+<text x="340" y="538" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">0.00</text>
+<line x1="420.0" y1="254" x2="420.0" y2="520" stroke="#e2e8f0" stroke-dasharray=""/>
+<text x="420.0" y="538" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">0.25</text>
+<line x1="500.0" y1="254" x2="500.0" y2="520" stroke="#475569" stroke-dasharray="4 4"/>
+<text x="500.0" y="538" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">0.50</text>
+<line x1="580.0" y1="254" x2="580.0" y2="520" stroke="#e2e8f0" stroke-dasharray=""/>
+<text x="580.0" y="538" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">0.75</text>
+<line x1="660.0" y1="254" x2="660.0" y2="520" stroke="#e2e8f0" stroke-dasharray=""/>
+<text x="660.0" y="538" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">1.00</text>
+<text x="60" y="284.0" font-size="13.5" fill="#0f172a" font-weight="600" text-anchor="start">Memory-first vs memory</text>
+<line x1="580.0" y1="275.0" x2="660.0" y2="275.0" stroke="#2563eb" stroke-width="2"/>
+<circle cx="630.9" cy="275.0" r="5" fill="#2563eb"/>
+<text x="572.0" y="279.0" font-size="11.5" fill="#2563eb" font-weight="700" text-anchor="end">0.91</text>
+<line x1="550.9" y1="288.0" x2="660.0" y2="288.0" stroke="#0d9488" stroke-width="2"/>
+<circle cx="609.1" cy="288.0" r="5" fill="#0d9488"/>
+<text x="542.9090909090909" y="292.0" font-size="11.5" fill="#0d9488" font-weight="700" text-anchor="end">0.84</text>
+<line x1="456.4" y1="301.0" x2="601.8" y2="301.0" stroke="#94a3b8" stroke-width="2"/>
+<circle cx="529.1" cy="301.0" r="5" fill="#94a3b8"/>
+<text x="609.8181818181818" y="305.0" font-size="11.5" fill="#94a3b8" font-weight="700" text-anchor="start">0.59</text>
+<text x="60" y="336.0" font-size="13.5" fill="#0f172a" font-weight="600" text-anchor="start">Agentic vs memory</text>
+<line x1="427.3" y1="327.0" x2="572.7" y2="327.0" stroke="#2563eb" stroke-width="2"/>
+<circle cx="500.0" cy="327.0" r="5" fill="#2563eb"/>
+<text x="580.7272727272727" y="331.0" font-size="11.5" fill="#2563eb" font-weight="700" text-anchor="start">0.50</text>
+<line x1="500.0" y1="340.0" x2="572.7" y2="340.0" stroke="#0d9488" stroke-width="2"/>
+<circle cx="536.4" cy="340.0" r="5" fill="#0d9488"/>
+<text x="580.7272727272727" y="344.0" font-size="11.5" fill="#0d9488" font-weight="700" text-anchor="start">0.61</text>
+<line x1="420.0" y1="353.0" x2="580.0" y2="353.0" stroke="#94a3b8" stroke-width="2"/>
+<circle cx="500.0" cy="353.0" r="5" fill="#94a3b8"/>
+<text x="588.0" y="357.0" font-size="11.5" fill="#94a3b8" font-weight="700" text-anchor="start">0.50</text>
+<text x="60" y="388.0" font-size="13.5" fill="#0f172a" font-weight="600" text-anchor="start">Small (memory-first) vs 397B (memory)</text>
+<line x1="638.2" y1="379.0" x2="660.0" y2="379.0" stroke="#2563eb" stroke-width="2"/>
+<circle cx="652.7" cy="379.0" r="5" fill="#2563eb"/>
+<text x="630.1818181818182" y="383.0" font-size="11.5" fill="#2563eb" font-weight="700" text-anchor="end">0.98</text>
+<line x1="623.6" y1="392.0" x2="660.0" y2="392.0" stroke="#0d9488" stroke-width="2"/>
+<circle cx="645.5" cy="392.0" r="5" fill="#0d9488"/>
+<text x="615.6363636363636" y="396.0" font-size="11.5" fill="#0d9488" font-weight="700" text-anchor="end">0.95</text>
+<line x1="638.2" y1="405.0" x2="660.0" y2="405.0" stroke="#94a3b8" stroke-width="2"/>
+<circle cx="652.7" cy="405.0" r="5" fill="#94a3b8"/>
+<text x="630.1818181818182" y="409.0" font-size="11.5" fill="#94a3b8" font-weight="700" text-anchor="end">0.98</text>
+<text x="60" y="440.0" font-size="13.5" fill="#0f172a" font-weight="600" text-anchor="start">Memory-first vs agentic</text>
+<line x1="587.3" y1="431.0" x2="645.5" y2="431.0" stroke="#2563eb" stroke-width="2"/>
+<circle cx="616.4" cy="431.0" r="5" fill="#2563eb"/>
+<text x="579.2727272727273" y="435.0" font-size="11.5" fill="#2563eb" font-weight="700" text-anchor="end">0.86</text>
+<text x="60" y="492.0" font-size="13.5" fill="#0f172a" font-weight="600" text-anchor="start">Agentic vs typical GraphRAG</text>
+<line x1="420.0" y1="483.0" x2="565.5" y2="483.0" stroke="#2563eb" stroke-width="2"/>
+<circle cx="492.7" cy="483.0" r="5" fill="#2563eb"/>
+<text x="573.4545454545455" y="487.0" font-size="11.5" fill="#2563eb" font-weight="700" text-anchor="start">0.48</text>
+<circle cx="65" cy="230" r="5" fill="#2563eb"/>
+<text x="75" y="234" font-size="12" fill="#475569" font-weight="400" text-anchor="start">GLM judge</text>
+<circle cx="215" cy="230" r="5" fill="#0d9488"/>
+<text x="225" y="234" font-size="12" fill="#475569" font-weight="400" text-anchor="start">Nemotron judge</text>
+<circle cx="365" cy="230" r="5" fill="#94a3b8"/>
+<text x="375" y="234" font-size="12" fill="#475569" font-weight="400" text-anchor="start">GLM, length-matched</text>
+<rect x="720" y="160" width="640" height="400" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="740" y="192" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Where the graph&#x27;s facts go</text>
+<text x="740" y="212" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Share of the question&#x27;s gold facts · Inkling-2-small · mean over tasks and 3 trials</text>
+<rect x="760.0" y="510.0" width="32.3" height="0.0" rx="3" fill="#bfdbfe"/>
+<text x="776.1666666666666" y="504.0" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.00</text>
+<rect x="798.3" y="510.0" width="32.3" height="0.0" rx="3" fill="#60a5fa"/>
+<rect x="836.7" y="495.9" width="32.3" height="14.1" rx="3" fill="#2563eb"/>
+<text x="852.8333333333333" y="489.87" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.05</text>
+<text x="817.5" y="530" font-size="13" fill="#0f172a" font-weight="600" text-anchor="middle">Memory</text>
+<rect x="905.0" y="348.7" width="32.3" height="161.3" rx="3" fill="#bfdbfe"/>
+<text x="921.1666666666666" y="342.6872727272727" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.60</text>
+<rect x="943.3" y="510.0" width="32.3" height="0.0" rx="3" fill="#60a5fa"/>
+<rect x="981.7" y="471.0" width="32.3" height="39.0" rx="3" fill="#2563eb"/>
+<text x="997.8333333333333" y="465.04636363636365" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.14</text>
+<text x="962.5" y="530" font-size="13" fill="#0f172a" font-weight="600" text-anchor="middle">Typical GraphRAG</text>
+<rect x="1050.0" y="268.2" width="32.3" height="241.8" rx="3" fill="#bfdbfe"/>
+<text x="1066.1666666666667" y="262.17" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.90</text>
+<rect x="1088.3" y="323.4" width="32.3" height="186.6" rx="3" fill="#60a5fa"/>
+<text x="1104.5" y="317.4463636363636" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.69</text>
+<rect x="1126.7" y="409.8" width="32.3" height="100.2" rx="3" fill="#2563eb"/>
+<text x="1142.8333333333335" y="403.83" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.37</text>
+<text x="1107.5" y="530" font-size="13" fill="#0f172a" font-weight="600" text-anchor="middle">Agentic</text>
+<rect x="1195.0" y="281.1" width="32.3" height="228.9" rx="3" fill="#bfdbfe"/>
+<text x="1211.1666666666667" y="275.10545454545456" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.85</text>
+<rect x="1233.3" y="318.2" width="32.3" height="191.8" rx="3" fill="#60a5fa"/>
+<text x="1249.5" y="312.16090909090906" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.71</text>
+<rect x="1271.7" y="427.8" width="32.3" height="82.2" rx="3" fill="#2563eb"/>
+<text x="1287.8333333333335" y="421.78909090909093" font-size="11.5" fill="#0f172a" font-weight="600" text-anchor="middle">0.30</text>
+<text x="1252.5" y="530" font-size="13" fill="#0f172a" font-weight="600" text-anchor="middle">Memory-first</text>
+<line x1="750" y1="510" x2="1330" y2="510" stroke="#475569"/>
+<rect x="1000" y="224" width="12" height="12" rx="2" fill="#bfdbfe"/>
+<text x="1017" y="235" font-size="12" fill="#475569" font-weight="400" text-anchor="start">retrieved</text>
+<rect x="1110" y="224" width="12" height="12" rx="2" fill="#60a5fa"/>
+<text x="1127" y="235" font-size="12" fill="#475569" font-weight="400" text-anchor="start">grounded</text>
+<rect x="1220" y="224" width="12" height="12" rx="2" fill="#2563eb"/>
+<text x="1237" y="235" font-size="12" fill="#475569" font-weight="400" text-anchor="start">used in answer</text>
+<rect x="40" y="580" width="660" height="270" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="60" y="612" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">Asking for objects: models, papers, methods, tools, benchmarks, datasets</text>
+<text x="60" y="632" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Share of gold objects of each type retrieved / named in the answer · Inkling-2-small · all trials</text>
+<text x="60" y="664" font-size="12" fill="#0f172a" font-weight="400" text-anchor="start"></text>
+<text x="262.85714285714283" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">model</text>
+<text x="328.57142857142856" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">paper</text>
+<text x="394.2857142857143" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">method</text>
+<text x="459.99999999999994" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">tech/tool</text>
+<text x="525.7142857142857" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">bench</text>
+<text x="591.4285714285714" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">dataset</text>
+<text x="657.1428571428571" y="668" font-size="12.5" fill="#475569" font-weight="600" text-anchor="middle">org</text>
+<text x="60" y="696" font-size="13" fill="#0f172a" font-weight="600" text-anchor="start">Typical GraphRAG</text>
+<rect x="236.0" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.22"/>
+<text x="262.85714285714283" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.81 / 0.18</text>
+<rect x="301.7" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.08"/>
+<text x="328.57142857142856" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.07 / 0.00</text>
+<rect x="367.4" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.21"/>
+<text x="394.2857142857143" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.16 / 0.16</text>
+<rect x="433.1" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.15"/>
+<text x="459.99999999999994" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.14 / 0.09</text>
+<rect x="498.9" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.19"/>
+<text x="525.7142857142857" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.41 / 0.14</text>
+<rect x="564.6" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.11"/>
+<text x="591.4285714285714" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.88 / 0.04</text>
+<rect x="630.3" y="678" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.25"/>
+<text x="657.1428571428571" y="695" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.38 / 0.21</text>
+<text x="60" y="730" font-size="13" fill="#0f172a" font-weight="600" text-anchor="start">Agentic</text>
+<rect x="236.0" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.37"/>
+<text x="262.85714285714283" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.36</text>
+<rect x="301.7" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.08"/>
+<text x="328.57142857142856" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.00</text>
+<rect x="367.4" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.32"/>
+<text x="394.2857142857143" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.30</text>
+<rect x="433.1" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.25"/>
+<text x="459.99999999999994" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.52 / 0.21</text>
+<rect x="498.9" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.41"/>
+<text x="525.7142857142857" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.41</text>
+<rect x="564.6" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.31"/>
+<text x="591.4285714285714" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.29</text>
+<rect x="630.3" y="712" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.41"/>
+<text x="657.1428571428571" y="729" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.97 / 0.42</text>
+<text x="60" y="764" font-size="13" fill="#0f172a" font-weight="600" text-anchor="start">Memory-first</text>
+<rect x="236.0" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.29"/>
+<text x="262.85714285714283" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.95 / 0.26</text>
+<rect x="301.7" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.08"/>
+<text x="328.57142857142856" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.93 / 0.00</text>
+<rect x="367.4" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.21"/>
+<text x="394.2857142857143" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.16</text>
+<rect x="433.1" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.18"/>
+<text x="459.99999999999994" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.51 / 0.12</text>
+<rect x="498.9" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.28"/>
+<text x="525.7142857142857" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.94 / 0.25</text>
+<rect x="564.6" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.18"/>
+<text x="591.4285714285714" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">1.00 / 0.12</text>
+<rect x="630.3" y="746" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.53"/>
+<text x="657.1428571428571" y="763" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.91 / 0.56</text>
+<text x="60" y="798" font-size="13" fill="#0f172a" font-weight="600" text-anchor="start">Memory</text>
+<rect x="236.0" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.09"/>
+<text x="262.85714285714283" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.01</text>
+<rect x="301.7" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.08"/>
+<text x="328.57142857142856" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.00</text>
+<rect x="367.4" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.14"/>
+<text x="394.2857142857143" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.07</text>
+<rect x="433.1" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.10"/>
+<text x="459.99999999999994" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.03</text>
+<rect x="498.9" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.13"/>
+<text x="525.7142857142857" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.06</text>
+<rect x="564.6" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.08"/>
+<text x="591.4285714285714" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.00</text>
+<rect x="630.3" y="780" width="53.7" height="24" rx="5" fill="#2563eb" fill-opacity="0.15"/>
+<text x="657.1428571428571" y="797" font-size="12" fill="#0f172a" font-weight="600" text-anchor="middle">0.00 / 0.08</text>
+<text x="60" y="832" font-size="12" fill="#b91c1c" font-weight="600" text-anchor="start">Papers are retrieved every time and named in no answer: the advice format has no reading-list slot.</text>
+<rect x="720" y="580" width="640" height="420" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="740" y="612" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">What the graph changed in the memory draft (real edits)</text>
+<text x="740" y="632" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Memory-first records every change it makes to the model&#x27;s own answer; the last one is a failure</text>
+<rect x="740" y="650" width="6" height="58" rx="3" fill="#2563eb"/>
+<text x="756" y="664" font-size="12.5" fill="#2563eb" font-weight="700" text-anchor="start">vendor choice · Ai2 ScholarQA · replaced</text>
+<text x="756" y="682" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">Generic &#x27;OpenAI or Anthropic API&#x27; replaced with Claude 3.7 Sonnet, the model ScholarQA is</text>
+<text x="756" y="698" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">built on.</text>
+<rect x="740" y="724" width="6" height="58" rx="3" fill="#2563eb"/>
+<text x="756" y="738" font-size="12.5" fill="#2563eb" font-weight="700" text-anchor="start">method adoption · Mixture-of-Experts · replaced</text>
+<text x="756" y="756" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">&#x27;MoE is production-proven&#x27; softened: only DSO National Laboratories shows an org-level MoE</text>
+<text x="756" y="772" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">signal, self-claimed and single-source; no production telemetry exists.</text>
+<rect x="740" y="798" width="6" height="58" rx="3" fill="#2563eb"/>
+<text x="756" y="812" font-size="12.5" fill="#2563eb" font-weight="700" text-anchor="start">customer stack · NBCUniversal · gap</text>
+<text x="756" y="830" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">Stated explicitly that no deployment workflow, AI methods, models, or benchmarks for</text>
+<text x="756" y="846" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">NBCUniversal are covered; discovery and joint metric definition are now step zero rather</text>
+<text x="756" y="862" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">than assumed context</text>
+<rect x="740" y="872" width="6" height="58" rx="3" fill="#b91c1c"/>
+<text x="756" y="886" font-size="12.5" fill="#b91c1c" font-weight="700" text-anchor="start">learn method · quantization · FAILURE: flagged</text>
+<text x="756" y="904" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">QAT demoted from core to stretch goal: quantization-aware training has no usable coverage,</text>
+<text x="756" y="920" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">so treat it as exploratory rather than a guaranteed deliverable.</text>
+<text x="756" y="982" font-size="12" fill="#475569" font-weight="400" text-anchor="start">QAT is well established; the graph just does not cover it. Missing ≠ false is still not fully learned.</text>
+<rect x="40" y="870" width="660" height="130" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="60" y="902" font-size="17" fill="#0f172a" font-weight="700" text-anchor="start">How it was measured</text>
+<text x="60" y="925" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">Tasks are generated from a use-case catalogue (persona + anchor + question + gold facts computed</text>
+<text x="60" y="942" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">from the graph), curated and rewritten by a separate model family, leak-checked. Each condition is</text>
+<text x="60" y="959" font-size="12.5" fill="#0f172a" font-weight="400" text-anchor="start">scored at three stages against the gold, plus judge preferences in both orders.</text>
+<text x="40" y="1030" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Caveats: judges are LLMs (GLM, Nemotron), not people; one trial judged per task; small task sets; answers from the graph are only as good as its mostly self-claimed edges.</text>
+<text x="40" y="1060" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">github.com/prabakaranc98/connected-frontiers · docs/AGENCY_EVAL.md · docs/RETRIEVAL.md</text>
+</svg>

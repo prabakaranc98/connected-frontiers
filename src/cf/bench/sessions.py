@@ -18,6 +18,7 @@ from cf import config
 from cf.agent.kg import KG
 from cf.crawl.noise import is_generic
 from cf.llm.client import LLM, BudgetExceeded, strict_schema
+from cf.resolve.er import normalize
 
 SUPPORTED = {"claimed", "confirmed", "corroborated", "verified"}
 
@@ -383,7 +384,13 @@ def _letters(x: str) -> str:
 def turn_detail(kg: KG, key: dict, items: list[dict]) -> dict:
     """Score one turn and say WHY: precision (wrong entities named), recall (right ones missed),
     and citation validity (cited edge ids exist in the KB and touch the entity they are cited for)."""
+    gold_ids = set(key.get("ids") or key.get("labels") or [])
+
     def res(n):
+        # same-name entities (the PyTorch org vs the PyTorch technology): prefer the one the key expects
+        exact = {eid for t in getattr(kg, "_types", []) for eid in kg._exact.get((t, normalize(n or "", t)), ())}
+        if exact & gold_ids:
+            return min(exact & gold_ids)
         m = kg.match(n or "", k=1, exact_first=True)
         return m[0][1] if m and m[0][0] >= 0.75 else None
     items = [it for it in items or [] if isinstance(it, dict)]
@@ -500,7 +507,7 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
     kg.empty_hints, kg.truncation_notice, kg.neighbor_limit = hs["empty_hints"], hs["truncation_notice"], hs["neighbor_limit"]
     max_steps = max_steps or hs["max_steps"]
     llm = LLM(model)
-    t0, spend0 = time.time(), LLM.spent_usd
+    t0, _spend0 = time.time(), LLM.spent_usd
     base = {"kg_tools": H.SYSTEM_TOOLS, "graph_query": H.SYSTEM_TOOLS + QUERY_HINT, "oracle": H.SYSTEM_ORACLE,
             "graph_rag": H.SYSTEM_ORACLE, "closed_book": H.SYSTEM_CLOSED}[condition]
     contract = TOOL_TURN if condition in ("kg_tools", "graph_query") else TURN_CONTRACT
@@ -580,7 +587,7 @@ def run_session(model: str, s: dict, condition: str, kg: KG, reasoning=None, max
            "kb_version": kg.kb_version, "run_id": trace.RUN_ID, "turns": turns, "steps": calls,
            "turn_scores": scores, "mean_score": round(sum(scores) / len(scores), 3),
            "all_turns_pass": all(x >= 0.5 for x in scores),
-           "cost_usd": round(LLM.spent_usd - spend0, 5), "latency_s": round(time.time() - t0, 1)}
+           "cost_usd": round(llm.spent, 5), "latency_s": round(time.time() - t0, 1)}
     trace.event("agent", {"session": s["id"], "model": model, "condition": condition, "summary": out["turn_scores"]})
     return out
 

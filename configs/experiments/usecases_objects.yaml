@@ -1,0 +1,24 @@
+# Object retrieval study: questions that ask for specific objects (models, papers, methods, frameworks, benchmarks,
+# datasets, tool stacks). 6 use cases × (1 rich + 1 thin). Report breaks retrieval and use down by object type.
+# Run:  CF_LLM_BUDGET_USD=3 uv run cf usecases configs/experiments/usecases_objects.yaml
+name: usecases_objects
+tasks:
+  usecases: [method_ecosystem, model_card, benchmark_models, lab_output, framework_stack, dataset_lineage]
+  rich: 1
+  thin: 1
+  seed: 11
+models: [thinkingmachines/inkling-2-small, qwen/qwen3.5-35b-a3b]
+conditions: [closed_book, kg_rag, kg_agentic, kg_enrich]
+trials: 3
+trial_models: [thinkingmachines/inkling-2-small]
+large_closed_book: [qwen/qwen3.5-397b-a17b]
+workers: 6
+checklist: [code, jev]
+judges:
+  models: [z-ai/glm-5.3]
+  roles: [persona, expert]
+comparisons:
+  - {name: agentic vs memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: memory-first vs memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: memory-first vs agentic, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}}
+  - {name: small memory-first vs large memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: qwen/qwen3.5-397b-a17b, condition: closed_book}}

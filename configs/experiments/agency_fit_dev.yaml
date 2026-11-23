@@ -1,0 +1,14 @@
+# Dev comparison: fit-first harness vs the current agentic harness, on the pilot's 4 tasks (where the problems were found).
+# A win here only earns a held-out test (agency_fit_heldout.yaml), not adoption. GLM-5.3 only: it passed judge validation.
+name: agency_fit_dev
+tasks: {personas: [undergrad_capstone, career_switcher, senior_research_engineer, forward_deployed], per_persona: 1, rich: 1, seed: 13}
+models: [thinkingmachines/inkling-2-small]
+conditions: [closed_book, kg_agentic, "kg_agentic+fit"]
+judges: {models: [z-ai/glm-5.3], roles: [persona, expert]}
+validate_judges: true            # re-check the sharpened rigor anchor catches missing baselines
+unit_test_answers: 3
+comparisons:
+  - {name: "fit-first vs agentic", x: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic+fit"}, y: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}}
+  - {name: "fit-first vs memory", x: {model: thinkingmachines/inkling-2-small, condition: "kg_agentic+fit"}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: "agentic vs memory", x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+workers: 6

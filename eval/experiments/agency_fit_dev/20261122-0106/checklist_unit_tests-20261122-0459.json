@@ -1,0 +1,163 @@
+{
+ "summary": {
+  "code": {
+   "detected": 1.0,
+   "n": 16,
+   "by_kind": {
+    "generic": 1.0,
+    "false_claim": null,
+    "infeasible": null,
+    "no_baseline": 1.0,
+    "famous_wrong": null,
+    "fake_name": null
+   },
+   "familiarity_gap": null
+  }
+ },
+ "rows": [
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "generic",
+   "item": "specific_names",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "generic",
+   "item": "stack_named",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "no_baseline",
+   "item": "baseline",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "no_baseline",
+   "item": "measure",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "generic",
+   "item": "specific_names",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "generic",
+   "item": "stack_named",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "no_baseline",
+   "item": "baseline",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-undergrad_capstone-00",
+   "kind": "no_baseline",
+   "item": "measure",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "generic",
+   "item": "specific_names",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "generic",
+   "item": "stack_named",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "no_baseline",
+   "item": "baseline",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "no_baseline",
+   "item": "measure",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "generic",
+   "item": "specific_names",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "generic",
+   "item": "stack_named",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "no_baseline",
+   "item": "baseline",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  },
+  {
+   "scorer": "code",
+   "task": "A-career_switcher-01",
+   "kind": "no_baseline",
+   "item": "measure",
+   "before": 1.0,
+   "after": 0.0,
+   "detected": true
+  }
+ ]
+}

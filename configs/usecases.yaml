@@ -1,0 +1,141 @@
+# Use-case catalogue: templates from which task sets are GENERATED on any KB version.
+# Each use case = who asks (persona key in personas.yaml) + what entity the task is about (anchor type and pool rule)
+# + the question template + the gold spec: which graph facts answer it ({anchor} is filled in per task).
+# Gold specs use cf/bench/retrieval.py semantics: {anchor, relations, direction} · {start, path} · {top}.
+# Add a use case here, with no code change; `cf usecases <experiment.yaml>` samples anchors, writes the task in the
+# persona's voice (Examiner: Gemma), computes gold, runs the conditions and scores retrieval → grounding → use.
+
+customer_stack:
+  persona: forward_deployed
+  anchor_type: org
+  intent: deploy
+  question: "I'm a forward-deployed engineer and {a} is becoming our customer. Which systems, tools and methods do they use, what should I prototype before the first meeting, and what should I measure first?"
+  gold:
+    - {anchor: "{anchor}", relations: [uses_tech, uses_method, offers, works_on, partners_with], direction: out}
+
+hiring_targets:
+  persona: career_switcher
+  anchor_type: role
+  intent: career
+  question: "I want to become a {a}. Which companies hire for this role, what do they actually use, and which two portfolio projects would make me credible to them?"
+  gold:
+    - {anchor: "{anchor}", relations: [hires_for], direction: in}
+    - {start: "{anchor}", path: [{relation: hires_for, direction: in, type: org}, {relation: uses_tech, direction: out}]}
+    - {start: "{anchor}", path: [{relation: hires_for, direction: in, type: org}, {relation: uses_method, direction: out}]}
+
+method_adoption:
+  persona: applied_ml_startup
+  anchor_type: method
+  intent: adopt
+  question: "We're deciding whether to use {a} in our product. Who uses or offers it in practice, which tools go with it, and what should a two-week go/no-go prototype test?"
+  gold:
+    - {anchor: "{anchor}", relations: [uses_method, offers], direction: in}
+    - {start: "{anchor}", path: [{relation: uses_method, direction: in, type: org}, {relation: uses_tech, direction: out}]}
+
+vendor_choice:
+  persona: applied_ml_startup
+  anchor_type: technology
+  intent: adopt
+  question: "Should we adopt {a}? Who offers it, who uses it, what do they use alongside it, and what would decide go or no-go for us?"
+  gold:
+    - {anchor: "{anchor}", relations: [uses_tech, offers, compares_against, builds_on], direction: both}
+    - {start: "{anchor}", path: [{relation: uses_tech, direction: in, type: org}, {relation: uses_tech, direction: out}]}
+
+base_model:
+  persona: junior_ml_engineer
+  anchor_type: model
+  intent: build
+  question: "Our team wants to fine-tune {a} for an internal assistant. What have others built on it, what do those derivatives change, and what project would let me own this and prove it worked?"
+  gold:
+    - {anchor: "{anchor}", relations: [builds_on, measured_on, trained_on], direction: both}
+
+benchmark_landscape:
+  persona: senior_research_engineer
+  anchor_type: benchmark
+  intent: research
+  check: "Is '{a}' a benchmark that models are evaluated on, specific enough to prepare an evaluation for? Reject generic words."
+  question: "I want to evaluate our models on {a}. Which models are measured on it, who reports results, and which baselines and controlled experiments would be most informative?"
+  gold:
+    - {anchor: "{anchor}", relations: [measured_on, publishes, offers], direction: in}
+    - {start: "{anchor}", path: [{relation: measured_on, direction: in, type: model}, {relation: offers, direction: in}]}
+
+research_direction:
+  persona: phd_first_year
+  anchor_type: problem
+  intent: research
+  question: "I'm a first-year PhD student considering {a} as my research direction. Who works on it, with which methods, and where are the open problems?"
+  gold:
+    - {anchor: "{anchor}", relations: [works_on], direction: in}
+    - {start: "{anchor}", path: [{relation: works_on, direction: in, type: org}, {relation: uses_method, direction: out}]}
+
+learn_method:            # the control: a well-known method, where memory should be enough
+  persona: undergrad_capstone
+  anchor_type: method
+  intent: learn
+  question: "I want to really understand {a} by implementing it myself for my capstone. What should I learn first, what should I build, and which experiments would show I understand it?"
+  gold:
+    - {anchor: "{anchor}", relations: [uses_method, offers, subtype_of], direction: both}
+
+# ---- object retrieval: questions that ask for specific objects (models, papers, methods, frameworks, benchmarks,
+# datasets, tool stacks). Gold is filtered by object type, and the report breaks retrieval and use down by type.
+
+method_ecosystem:
+  persona: senior_research_engineer
+  anchor_type: method
+  intent: research
+  check: "Is '{a}' a specific AI method or technique (not a generic word)?"
+  question: "Map {a} for me: which models use it, which papers apply it, which frameworks and tools implement it, and which benchmarks are used to evaluate it?"
+  gold:
+    - {anchor: "{anchor}", relations: [uses_method], direction: in, types: [model, paper, technology]}
+    - {start: "{anchor}", path: [{relation: uses_method, direction: in, type: model}, {relation: measured_on, direction: out, type: benchmark}]}
+    - {start: "{anchor}", path: [{relation: uses_method, direction: in, type: org}, {relation: uses_tech, direction: out, type: technology}]}
+
+model_card:
+  persona: junior_ml_engineer
+  anchor_type: model
+  intent: build
+  check: "Is '{a}' a specific AI model this person could study or build on? Reject internal experiment artefacts and checkpoint dumps."
+  question: "Give me the full picture of {a}: who makes it, what it is built on, which datasets it was trained on, which benchmarks it is measured on, and which tools and methods go with it."
+  gold:
+    - {anchor: "{anchor}", relations: [builds_on, trained_on, measured_on, uses_tech, uses_method], direction: out}
+    - {anchor: "{anchor}", relations: [offers, builds_on], direction: in, types: [org, model]}
+
+benchmark_models:
+  persona: senior_research_engineer
+  anchor_type: benchmark
+  intent: research
+  check: "Is '{a}' a benchmark that models are evaluated on, specific enough to prepare an evaluation for? Reject generic words."
+  question: "Which models and papers report results on {a}, who makes those models, and which baselines should I compare against?"
+  gold:
+    - {anchor: "{anchor}", relations: [measured_on], direction: in, types: [model, paper]}
+    - {start: "{anchor}", path: [{relation: measured_on, direction: in, type: model}, {relation: offers, direction: in, type: org}]}
+
+lab_output:
+  persona: phd_first_year
+  anchor_type: org
+  intent: research
+  check: "Is '{a}' an organisation that publishes AI research, models, datasets or benchmarks? Reject non-AI companies."
+  question: "I'm considering working with {a}. Which papers, models, datasets and benchmarks have they published, and which methods do they work with?"
+  gold:
+    - {anchor: "{anchor}", relations: [publishes, offers], direction: out, types: [paper, model, dataset, benchmark]}
+    - {anchor: "{anchor}", relations: [uses_method], direction: out, types: [method]}
+
+framework_stack:
+  persona: applied_ml_startup
+  anchor_type: technology
+  intent: adopt
+  check: "Is '{a}' a software framework, library, protocol or platform an ML product engineer could build on? Reject consumer brands."
+  question: "If we build on {a}, what does it integrate with, who uses it, and what does the rest of their tool stack look like (models, frameworks, infrastructure)?"
+  gold:
+    - {anchor: "{anchor}", relations: [uses_tech, offers, builds_on], direction: both, types: [technology, model, org]}
+    - {start: "{anchor}", path: [{relation: uses_tech, direction: in, type: org}, {relation: uses_tech, direction: out, type: technology}]}
+
+dataset_lineage:
+  persona: masters_thesis
+  anchor_type: dataset
+  intent: build
+  check: "Is '{a}' a specific dataset an ML student could use? Reject generic words like 'original' or 'updated'."
+  question: "I want to use {a} in my thesis. Which models were trained on it, who provides it, and what would be a fair baseline and evaluation?"
+  gold:
+    - {anchor: "{anchor}", relations: [trained_on, offers, publishes, measured_on], direction: in, types: [model, org, paper]}
+    - {start: "{anchor}", path: [{relation: trained_on, direction: in, type: model}, {relation: measured_on, direction: out, type: benchmark}]}

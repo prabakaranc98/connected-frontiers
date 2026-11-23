@@ -1,0 +1,26 @@
+# Use-case testbed v1: 8 use cases × (1 rich + 1 thin) = 16 generated tasks.
+# Run:  CF_LLM_BUDGET_USD=4.5 uv run cf usecases configs/experiments/usecases_v1.yaml
+name: usecases_v1
+tasks:
+  usecases: [customer_stack, hiring_targets, method_adoption, vendor_choice, base_model, benchmark_landscape,
+             research_direction, learn_method]
+  rich: 1
+  thin: 1
+  seed: 7
+models: [thinkingmachines/inkling-2-small, qwen/qwen3.5-35b-a3b]
+conditions: [closed_book, kg_rag, kg_agentic, kg_enrich]
+trials: 3                                   # noise: one trial moved a cell by 0.24
+trial_conditions: [closed_book, kg_rag, kg_agentic, kg_enrich]
+trial_models: [thinkingmachines/inkling-2-small]   # repeat trials for the main model only (cost)
+large_closed_book: [qwen/qwen3.5-397b-a17b] # H3: does a small grounded model match a large one from memory?
+workers: 6
+checklist: [code, jev]
+judges:
+  models: [z-ai/glm-5.3]
+  roles: [persona, expert]
+comparisons:
+  - {name: agentic vs memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: memory-first vs memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: memory-first vs agentic, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}}
+  - {name: agentic vs typical RAG, x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: kg_rag}}
+  - {name: small memory-first vs large memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: qwen/qwen3.5-397b-a17b, condition: closed_book}}

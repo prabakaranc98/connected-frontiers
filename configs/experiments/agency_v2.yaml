@@ -1,0 +1,30 @@
+# Agency v2: all eight personas, rich + thin tasks, memory-first variant, typed checklist with three scorers.
+# Covers H1 (grounding vs memory), H3 (small grounded vs large from memory), H5 (thin graph), and the
+# scorer comparison (code vs Jev vs LLM judges, incl. the familiarity test).
+# Run with a hard cap:  CF_LLM_BUDGET_USD=2.5 uv run cf experiment configs/experiments/agency_v2.yaml
+name: agency_v2
+tasks:
+  personas: [undergrad_capstone, masters_thesis, phd_first_year, career_switcher,
+             junior_ml_engineer, senior_research_engineer, applied_ml_startup, forward_deployed]
+  per_persona: 2
+  rich: 1                 # 1 rich + 1 thin per persona
+  seed: 21                # new seed: fresh tasks, not the pilot's
+  oversample: 4
+models: [thinkingmachines/inkling-2-small, qwen/qwen3.5-35b-a3b]
+conditions: [closed_book, kg_agentic, kg_enrich]
+large_closed_book: [qwen/qwen3.5-397b-a17b]     # H3: large model from memory only
+workers: 6
+judges:
+  models: [z-ai/glm-5.3, nvidia/nemotron-3.5-super-vl]
+  roles: [persona, expert]
+validate_judges: true
+checklist:
+  scorers: [code, jev, "llm:z-ai/glm-5.3", "llm:nvidia/nemotron-3.5-super-vl"]
+  unit_tests: true
+  unit_test_answers: 6
+comparisons:
+  - {name: agentic vs memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: enrich vs memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: thinkingmachines/inkling-2-small, condition: closed_book}}
+  - {name: enrich vs agentic, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: thinkingmachines/inkling-2-small, condition: kg_agentic}}
+  - {name: qwen-small enrich vs memory, x: {model: qwen/qwen3.5-35b-a3b, condition: kg_enrich}, y: {model: qwen/qwen3.5-35b-a3b, condition: closed_book}}
+  - {name: small enrich vs large memory, x: {model: thinkingmachines/inkling-2-small, condition: kg_enrich}, y: {model: qwen/qwen3.5-397b-a17b, condition: closed_book}}

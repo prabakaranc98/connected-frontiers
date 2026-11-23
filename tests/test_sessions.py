@@ -168,3 +168,47 @@ def test_personas_catalogue_is_complete():
     for k, p in P.items():
         assert {"label", "anchor", "background", "constraints", "goal", "success", "request"} <= set(p), k
         assert p["anchor"] in ("method", "technology", "org") and "{a}" in p["request"], k
+
+
+def test_scorer_prefers_the_key_entity_for_same_name_matches(tmp_path):
+    """The PyTorch org and the PyTorch technology share a name; a correct answer must not score as wrong."""
+    import json
+
+    from cf.agent.kg import KG
+    from cf.bench.sessions import turn_detail
+    ents = [{"id": "org:pytorch", "type": "org", "name": "PyTorch", "aliases": [], "pagerank": 0.9},
+            {"id": "technology:pytorch", "type": "technology", "name": "PyTorch", "aliases": [], "pagerank": 0.1}]
+    f = tmp_path / "g.json"
+    f.write_text(json.dumps({"entities": ents, "edges": [], "communities": [], "hierarchy": [], "seeds": []}))
+    kg = KG(path=f)
+    d = turn_detail(kg, {"kind": "set", "ids": ["technology:pytorch"]}, [{"name": "PyTorch"}])
+    assert d["score"] == 1.0 and d["precision"] == 1.0
+
+
+def test_per_client_spend_is_isolated():
+    from cf.llm.client import LLM
+    a, b = LLM("x/a"), LLM("x/b")
+    a.spent += 0.5
+    assert b.spent == 0.0 and a.spent == 0.5
+
+
+def test_blind_keeps_content_and_drops_only_citations():
+    """Regression: blinding once deleted every JSON list (learning path, stack), so judges saw empty answers."""
+    from cf.bench.guidance import _blind
+    a = {"summary": "Start with SFT [org:x|uses_method|method:sft] then DPO.", "learn": ["SFT basics", "DPO and beta"],
+         "projects": [{"title": "Ladder", "what": "SFT then DPO", "stack": ["TRL", "vLLM"], "first_step": "Run SFT", "based_on": [0, 2]}],
+         "experiments": [{"question": "Does DPO help?", "baseline": "SFT only", "change": "add DPO", "measure": "win rate"}],
+         "stack": ["PyTorch", "TRL"], "sources": ["org:x|uses_method|method:sft"]}
+    t = _blind(a)
+    for kept in ("SFT basics", "DPO and beta", "Ladder", "TRL, vLLM", "Run SFT", "Does DPO help?", "PyTorch, TRL"):
+        assert kept in t, kept
+    assert "org:x|uses_method" not in t and "based_on" not in t and "sources" not in t
+
+
+def test_blind_removes_graph_mentions_but_keeps_tool_names():
+    from cf.bench.guidance import _blind
+    a = {"summary": "The graph shows vLLM leads. No suite appears in the graph. Use CUDA Graph capture.",
+         "learn": [], "projects": [], "experiments": [], "stack": []}
+    t = _blind(a)
+    assert "The evidence shows vLLM leads" in t and "appears." in t and "CUDA Graph" in t
+    assert "the graph" not in t.lower()
