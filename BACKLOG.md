@@ -87,3 +87,54 @@ ablation on that KB.
 
 **Done (2026-11-22):** rebuilt as `v20261122-0143`: 2,411 Hub rows, 2,371 new edges, verified edges 468 → 2,363.
 Still open: the structured-vs-extracted ablation, and re-running the agency tasks on the new KB.
+
+## Pending after the agency and retrieval round (2026-11-22)
+
+Owner decision: keep these here and improve over time. Each item names what it needs and how it will be measured.
+
+**Runs to finish**
+- [ ] One-change-at-a-time steps (`scripts/ablate_steps.py`: S1 +reading, S2 +select, S3 +justify) stopped at the
+  OpenRouter key limit ($70 total, shared with project-beaver). 111 answers are cached; about $2-3 more completes it.
+  Measure: papers named (0.00 so far), utilisation, use by object type, answer length, judges raw and length-matched.
+- [ ] Memory-first vs memory is not robust under length matching (0.91 → 0.59). Re-test after `+justify`, with a
+  second judge family, and with the owner's blind review.
+
+**Verification and evidence**
+- [ ] Structured adapters so papers, tools and benchmarks can reach `verified` (only Hugging Face exists today):
+  arXiv / OpenAlex / Semantic Scholar (papers: authors, affiliations, citations, what a paper introduces and uses),
+  GitHub (tools: repos, dependency manifests, maintainers), leaderboards / Papers with Code (benchmark results).
+- [ ] On-demand web corroboration for the claimed edges an answer relies on (claimed → corroborated, never
+  verified), through the same quote check and publisher-independence rules, with a budget cap.
+- [ ] Papers are shallow (3,975 entities, 24 with ≥ 3 edges): extract `introduces` / `uses_method` / `measured_on`
+  from paper pages, not only `publishes`.
+
+**Retrieval, grounding, answers**
+- [ ] Practice from the field still planned (docs/RETRIEVAL.md §6): merge overlapping graph tools; concise vs detailed
+  tool responses; clear raw tool output once it is in the notes; scale effort to the question; explicit stopping rule.
+- [ ] Two-hop questions (role → hirers → their stack; tool stacks) are still half retrieved.
+- [ ] "Missing ≠ false" is not fully learned (QAT case). Measure false-doubt phrases per answer.
+- [ ] Weight gold by importance and report "key facts used", not all gold.
+- [ ] Show `also_in_graph` in `cf advise` and the explorer.
+
+**Task curation and the testbed**
+- [ ] Research-direction use case produced no tasks: the graph's problem entities are too broad. Needs specific
+  problems (crawl or extraction).
+- [ ] Autopilot: steer generation toward use cases where models fail; graduate saturated templates to a regression
+  suite; keep a held-out task set the loop never tunes on.
+- [ ] Tasks where the right answer is "insufficient evidence", and a query–evidence distance tag (difficulty).
+
+**Entity resolution**
+- [ ] Link same-name org and product at build time (an `offers` edge) instead of merging twins at query time
+  (395 names, 80 duplicate edges).
+- [ ] Owner review: 24 same-type pairs with the same normalised name (Scale / Scale AI, Meta / Meta AI,
+  Fermilab / fermilab.ai); some are different organisations.
+
+**Owner items**
+- [ ] Merge PR #2.
+- [ ] Blind review of 12 answer pairs (the human anchor for every judge result).
+- [ ] `configs/must_have.yaml` (coverage list).
+- [ ] Raise or split the OpenRouter key so this project and project-beaver have separate limits.
+
+**Release**
+- [ ] Hugging Face collection is private: decide on publishing, licence for quotes, and the dataset cards' wording.
+- [ ] Re-release after the step run so `runs/agency_trajectories` includes the use-case and object studies.
